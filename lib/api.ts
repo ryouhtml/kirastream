@@ -3,7 +3,7 @@ import { CONFIG, ENDPOINTS } from './config'
 
 // ─── API CLIENTS ─────────────────────────────────────────────
 
-// Anime API Client (Sankavollerei)
+// Anime API Client (Sankavollerei — Kusonime)
 const animeClient: AxiosInstance = axios.create({
   baseURL: CONFIG.ANIME_API,
   timeout: 15000,
@@ -95,8 +95,14 @@ export interface AnimeCharacterType {
   slug: string
 }
 
+export interface AnimeSeason {
+  name: string
+  slug: string
+}
+
 // ─── ANIME API FUNCTIONS ─────────────────────────────────────
 
+// Update terbaru — endpoint utama kusonime
 export async function fetchHome(page = 1): Promise<Anime[]> {
   try {
     const { data } = await animeClient.get(ENDPOINTS.HOME(page))
@@ -115,13 +121,9 @@ export async function fetchLatest(page = 1): Promise<Anime[]> {
   }
 }
 
+// Kusonime tidak punya endpoint popular — fallback ke all-anime
 export async function fetchPopular(page = 1): Promise<Anime[]> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.POPULAR(page))
-    return extractAnimes(data)
-  } catch {
-    return []
-  }
+  return fetchAllAnime(page)
 }
 
 export async function fetchMovies(page = 1): Promise<Anime[]> {
@@ -133,18 +135,30 @@ export async function fetchMovies(page = 1): Promise<Anime[]> {
   }
 }
 
+// Kusonime tidak punya endpoint ongoing — fallback ke latest
 export async function fetchOngoing(page = 1): Promise<Anime[]> {
+  return fetchLatest(page)
+}
+
+// Kusonime tidak punya endpoint completed — return empty
+export async function fetchCompleted(_page = 1): Promise<Anime[]> {
+  return []
+}
+
+// Semua anime A-Z (menggantikan animalist & popular di animasu)
+export async function fetchAllAnime(page = 1): Promise<Anime[]> {
   try {
-    const { data } = await animeClient.get(ENDPOINTS.ONGOING(page))
+    const { data } = await animeClient.get(ENDPOINTS.ALL_ANIME(page))
     return extractAnimes(data)
   } catch {
     return []
   }
 }
 
-export async function fetchCompleted(page = 1): Promise<Anime[]> {
+// Anime berdasarkan tipe: 'ona' | 'ova' | 'special'
+export async function fetchByType(type: string, page = 1): Promise<Anime[]> {
   try {
-    const { data } = await animeClient.get(ENDPOINTS.COMPLETED(page))
+    const { data } = await animeClient.get(ENDPOINTS.TYPE(type, page))
     return extractAnimes(data)
   } catch {
     return []
@@ -174,6 +188,20 @@ export async function fetchGenres(): Promise<{ name: string; slug: string }[]> {
   }
 }
 
+// Daftar musim/tahun rilis dari kusonime
+export async function fetchSeasons(): Promise<AnimeSeason[]> {
+  try {
+    const { data } = await animeClient.get(ENDPOINTS.ALL_SEASONS)
+    const list = Array.isArray(data) ? data : (data.data || data.seasons || [])
+    return list.map((s: any) => ({
+      name: s.name || s.title || s.season || String(s),
+      slug: s.slug || (s.name || String(s)).toLowerCase().replace(/\s+/g, '-'),
+    })).filter((s: any) => s.name)
+  } catch {
+    return []
+  }
+}
+
 export async function fetchByGenre(slug: string, page = 1): Promise<Anime[]> {
   try {
     const { data } = await animeClient.get(ENDPOINTS.GENRE(slug, page))
@@ -183,104 +211,80 @@ export async function fetchByGenre(slug: string, page = 1): Promise<Anime[]> {
   }
 }
 
-export async function fetchAnimeList(letter: string, page = 1): Promise<Anime[]> {
+// Anime berdasarkan musim: season ('fall'|'winter'|'spring'|'summer') + year
+export async function fetchBySeason(season: string, year: string | number): Promise<Anime[]> {
   try {
-    const { data } = await animeClient.get(ENDPOINTS.ANIMELIST(letter, page))
+    const { data } = await animeClient.get(ENDPOINTS.SEASON(season, year))
     return extractAnimes(data)
   } catch {
     return []
   }
 }
 
+// fetchAnimeList — di kusonime tidak ada filter by letter, pakai all-anime saja
+export async function fetchAnimeList(_letter: string, page = 1): Promise<Anime[]> {
+  return fetchAllAnime(page)
+}
+
+// Advanced search tidak tersedia di kusonime — fallback ke search biasa
 export async function fetchAdvancedSearch(params: Record<string, string>): Promise<Anime[]> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.ADV_SEARCH(params))
-    return extractAnimes(data)
-  } catch {
-    return []
-  }
+  const keyword = params.q || params.keyword || params.search || ''
+  if (keyword) return searchAnime(keyword, Number(params.page) || 1)
+  return fetchAllAnime(Number(params.page) || 1)
 }
 
+// Kusonime tidak punya endpoint characters
 export async function fetchCharacters(): Promise<AnimeCharacterType[]> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.CHARACTERS)
-    const list = Array.isArray(data) ? data : (data.characters || data.data || [])
-    return list
-      .map((c: any) => ({
-        name: c.name || c.title || c.slug || '',
-        slug: c.slug || (c.name || '').toLowerCase().replace(/\s+/g, '-'),
-      }))
-      .filter((c: AnimeCharacterType) => c.name)
-  } catch {
-    return []
-  }
+  return []
 }
 
-export async function fetchByCharacter(slug: string, page = 1): Promise<Anime[]> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.CHARACTER(slug, page))
-    return extractAnimes(data)
-  } catch {
-    return []
-  }
+export async function fetchByCharacter(_slug: string, _page = 1): Promise<Anime[]> {
+  return []
 }
 
+// Kusonime tidak punya endpoint schedule
 export async function fetchSchedule(): Promise<Record<string, Anime[]>> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.SCHEDULE)
-    const raw = data.schedule || data.data || data || {}
-    // Sebelumnya raw item per hari langsung di-cast ke tipe Anime tanpa normalisasi,
-    // padahal field mentahnya beda nama (poster/href dll) — makanya anime.image selalu
-    // kosong dan proxy gambar selalu gagal (400 "URL missing"). Disamain pakai extractAnimes
-    // biar konsisten sama endpoint lain (latest/popular/dst).
-    const result: Record<string, Anime[]> = {}
-    for (const day of Object.keys(raw)) {
-      result[day] = extractAnimes(raw[day])
-    }
-    return result
-  } catch {
-    return {}
-  }
+  return {}
 }
 
 export async function fetchDetail(slug: string): Promise<AnimeDetail | null> {
   try {
     const { data } = await animeClient.get(ENDPOINTS.DETAIL(slug))
     const d = data.detail || data.data || data
-    
-    const episodes = (d.episodes || []).map((ep: any) => ({
-      title: ep.name || ep.title || '',
-      slug: ep.slug || cleanSlug(ep.href || ep.url || ''),
-      date: ep.date || '',
+
+    const episodes = (d.episodes || d.episodeList || []).map((ep: any) => ({
+      title: ep.name || ep.title || ep.episode || '',
+      slug: ep.slug || cleanSlug(ep.href || ep.url || ep.link || ''),
+      date: ep.date || ep.uploadDate || '',
     }))
-    
-    const genres = (d.genres || []).map((g: any) =>
-      typeof g === 'object' ? g.name || '' : g
+
+    const genres = (d.genres || d.genreList || []).map((g: any) =>
+      typeof g === 'object' ? (g.name || g.title || '') : g
     ).filter(Boolean)
-    
+
     const result: AnimeDetail = {
       title: d.title || '',
-      image: d.poster || d.image || '',
-      description: d.synopsis || d.description || '',
+      image: d.poster || d.thumbnail || d.image || d.cover || '',
+      description: d.synopsis || d.description || d.sinopsis || '',
       info: {
-        japanese: d.synonym || d.japanese || '',
+        japanese: d.japanese || d.synonym || d.alternativeTitle || '',
         type: d.type || 'TV',
         status: d.status || 'Ongoing',
-        total_episode: d.totalEpisode || episodes.length || '?',
+        total_episode: d.totalEpisode || d.total_episode || episodes.length || '?',
         score: d.score || d.rating || 'N/A',
-        duration: d.duration || '?',
+        duration: d.duration || d.durasi || '?',
         season: d.season || '',
-        released: d.aired || d.releaseDate || '',
-        producer: d.author || d.producer || '',
-        studio: d.studio || '',
+        released: d.aired || d.releaseDate || d.release || d.year || '',
+        producer: d.producer || d.author || d.studio || '',
+        studio: d.studio || d.producer || '',
         genre: genres.join(', '),
       },
       genres,
       episodes,
-      batchSlug: d.batch?.slug || cleanSlug(d.batch?.href || ''),
+      batchSlug: d.batch?.slug || cleanSlug(d.batch?.href || d.batch?.url || ''),
     }
 
-    // Deskripsi selalu disinkronkan dari MAL (bahasa Inggris) biar konsisten.
+    // Sinkronkan sinopsis dari MAL
     try {
       const malId = d.mal_id || d.malId || d.malID
       let malSynopsis = ''
@@ -310,30 +314,30 @@ export async function fetchEpisode(slug: string): Promise<StreamData | null> {
   try {
     const { data } = await animeClient.get(ENDPOINTS.EPISODE(slug))
     const d = data.data || data
-    
-    const streams = (d.streams || []).map((s: any) => ({
-      server: s.name || s.server || 'Server',
-      url: s.url || s.embedUrl || '',
+
+    const streams = (d.streams || d.server || d.servers || []).map((s: any) => ({
+      server: s.name || s.server || s.title || 'Server',
+      url: s.url || s.embedUrl || s.src || '',
     })).filter((s: any) => s.url)
-    
+
     const downloads: DownloadLink[] = []
-    const dlRaw = d.downloadUrl || d.downloads || []
-    
+    const dlRaw = d.downloadUrl || d.downloads || d.download || []
+
     if (Array.isArray(dlRaw)) {
       dlRaw.forEach((group: any) => {
-        (group.qualities || []).forEach((q: any) => {
+        (group.qualities || group.links || []).forEach((q: any) => {
           downloads.push({
-            resolution: q.title || q.resolution || '',
-            format: group.title || '',
-            links: (q.urls || []).map((l: any) => ({
-              host: l.title || '',
+            resolution: q.title || q.resolution || q.quality || '',
+            format: group.title || group.format || '',
+            links: (q.urls || q.hosts || []).map((l: any) => ({
+              host: l.title || l.name || l.host || '',
               url: l.url || '',
             })),
           })
         })
       })
     }
-    
+
     return {
       title: d.title || data.title || '',
       streams,
@@ -351,7 +355,7 @@ export async function fetchMALSeason(year?: number, season?: string): Promise<MA
   const y = year || now.getFullYear()
   const m = now.getMonth() + 1
   const s = season || (m >= 10 ? 'fall' : m >= 7 ? 'summer' : m >= 4 ? 'spring' : 'winter')
-  
+
   try {
     const { data } = await jikanClient.get(ENDPOINTS.JIKAN_SEASON(y, s))
     return (data.data || []).slice(0, 25)
@@ -387,8 +391,6 @@ export async function searchMAL(query: string): Promise<MALAnime[]> {
     return []
   }
 }
-
-// ─── HELPERS ─────────────────────────────────────────────────
 
 // ─── COMIC / MANGA TYPES ─────────────────────────────────────
 
@@ -542,7 +544,6 @@ export async function fetchComicHomepage(): Promise<{ popular: Comic[]; latest: 
       latest: extractComics(d.latest || d.terbaru || []),
       trending: extractComics(d.trending || []),
     }
-    // Fallback: kalau homepage aggregator kosong, isi dari endpoint listing yang sehat
     if (!home.popular.length || !home.latest.length || !home.trending.length) {
       const [popular, latest, trending] = await Promise.all([
         home.popular.length ? Promise.resolve(home.popular) : fetchComicPopular(1),
@@ -614,7 +615,7 @@ export async function fetchComicAdvancedSearch(params: { q: string; type?: strin
   } catch { return [] }
 }
 
-// Daftar komik berwarna (paginasi per halaman)
+// Daftar komik berwarna
 export async function fetchComicColored(page = 1): Promise<Comic[]> {
   try {
     const { data } = await comicClient.get(ENDPOINTS.COMIC_COLORED(page))
@@ -622,7 +623,7 @@ export async function fetchComicColored(page = 1): Promise<Comic[]> {
   } catch { return [] }
 }
 
-// Perpustakaan komik (paginasi per halaman)
+// Perpustakaan komik
 export async function fetchComicLibrary(page = 1): Promise<Comic[]> {
   try {
     const { data } = await comicClient.get(ENDPOINTS.COMIC_LIBRARY(page))
@@ -673,7 +674,6 @@ export async function fetchChapterPages(chapterSlug: string): Promise<ChapterPag
     const { data } = await comicClient.get(ENDPOINTS.COMIC_CHAPTER(chapterSlug))
     const d = data.data || data
     const rawPages = d.images || d.pages || d.imagesUrl || (Array.isArray(d) ? d : [])
-    // Beberapa response ngasih array of object ({url, src, image}) bukan array of string
     const pages: string[] = (Array.isArray(rawPages) ? rawPages : [])
       .map((p: any) => (typeof p === 'string' ? p : p?.url || p?.src || p?.image || ''))
       .filter(Boolean)
@@ -746,8 +746,7 @@ export interface NovelChaptersData {
 }
 
 // ─── NOVEL API FUNCTIONS ──────────────────────────────────────
-// REST API novel Sankavollerei (novelId based, konten NovelHub). Cover sudah disertakan
-// langsung di response (nacdn.novelhubapp.com), jadi nggak perlu proxy/enrich lagi.
+// REST API novel Sankavollerei (novelId based, konten NovelHub).
 
 const novelClient: AxiosInstance = axios.create({
   baseURL: 'https://www.sankavollerei.web.id',
@@ -875,20 +874,30 @@ export async function fetchNovelGenresMap(): Promise<NovelGenreTag[]> {
 // ─── HELPERS ─────────────────────────────────────────────────
 
 function extractAnimes(raw: any): Anime[] {
-  const arr = raw.animes || raw.animeList || raw.data?.animes || raw.data?.animeList || raw.data || (Array.isArray(raw) ? raw : [])
-  
+  // Kusonime mungkin return: { data: [...] } atau { animeList: [...] } atau langsung array
+  const arr =
+    raw?.animeList ||
+    raw?.animes ||
+    raw?.anime_list ||
+    raw?.results ||
+    raw?.data?.animeList ||
+    raw?.data?.animes ||
+    raw?.data?.results ||
+    raw?.data ||
+    (Array.isArray(raw) ? raw : [])
+
   if (!Array.isArray(arr)) return []
-  
+
   return arr.map((item: any) => ({
-    title: item.title || '',
-    slug: item.slug || cleanSlug(item.href || item.url || ''),
-    image: item.poster || item.image || '',
+    title: item.title || item.judul || '',
+    slug: item.slug || cleanSlug(item.href || item.url || item.link || ''),
+    image: item.poster || item.thumbnail || item.image || item.cover || '',
     score: item.score || item.rating || '',
-    episode: item.episode != null ? String(item.episode) : '',
-    type: item.type || '',
+    episode: item.episode != null ? String(item.episode) : (item.latestEpisode != null ? String(item.latestEpisode) : ''),
+    type: item.type || item.tipe || '',
     status: item.status || item.status_or_day || item.statusOrDay || '',
-    genres: Array.isArray(item.genres) ? item.genres : [],
-    release: item.release_day || item.releaseDay || '',
+    genres: Array.isArray(item.genres) ? item.genres : (Array.isArray(item.genre) ? item.genre : []),
+    release: item.release_day || item.releaseDay || item.release || '',
   }))
 }
 

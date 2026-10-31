@@ -1,17 +1,17 @@
 // ─── KIRA API CONFIG ─────────────────────────────────────────
-// Sumber: sankavollerei.web.id/anime/animasu
+// Sumber: sankavollerei.web.id/anime/kusonime
 
 export const CONFIG = {
-  // Anime API (Sankavollerei)
-  ANIME_API: 'https://www.sankavollerei.web.id/anime/animasu',
-  
+  // Anime API (Sankavollerei — Kusonime)
+  ANIME_API: 'https://www.sankavollerei.web.id/anime/kusonime',
+
   // MAL API (MyAnimeList)
   MAL_API: 'https://api.myanimelist.net/v2',
   MAL_CLIENT_ID: process.env.NEXT_PUBLIC_MAL_CLIENT_ID || '',
-  
+
   // Jikan API (Alternative MAL)
   JIKAN_API: 'https://api.jikan.moe/v4',
-  
+
   // Firebase Config
   FIREBASE: {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
@@ -24,59 +24,67 @@ export const CONFIG = {
   },
 } as const
 
-// API Endpoints
+// API Endpoints — Kusonime
 export const ENDPOINTS = {
-  // Anime
-  HOME: (page = 1) => `/home?page=${page}`,
-  POPULAR: (page = 1) => `/popular?page=${page}`,
-  MOVIES: (page = 1) => `/movies?page=${page}`,
-  ONGOING: (page = 1) => `/ongoing?page=${page}`,
-  COMPLETED: (page = 1) => `/completed?page=${page}`,
-  LATEST: (page = 1) => `/latest?page=${page}`,
-  SEARCH: (keyword: string, page = 1) => `/search/${encodeURIComponent(keyword)}?page=${page}`,
-  ANIMELIST: (letter: string, page = 1) => `/animelist?letter=${letter}&page=${page}`,
-  ADV_SEARCH: (params: Record<string, string>) => `/advanced-search?${new URLSearchParams(params)}`,
-  GENRES: '/genres',
-  GENRE: (slug: string, page = 1) => `/genre/${slug}?page=${page}`,
-  CHARACTERS: '/characters',
-  CHARACTER: (slug: string, page = 1) => `/character/${slug}?page=${page}`,
-  SCHEDULE: '/schedule',
-  DETAIL: (slug: string) => `/detail/${slug}`,
-  EPISODE: (slug: string) => `/episode/${slug}`,
-  
-  // Jikan (MAL Alternative - Free, No Auth)
+  // ── Anime listing ──────────────────────────────────────────
+  // Update Terbaru (Home)
+  HOME:      (page = 1) => `/latest?page=${page}`,
+  // Alias untuk kejelasan — keduanya sama
+  LATEST:    (page = 1) => `/latest?page=${page}`,
+  // Semua anime A-Z (menggantikan POPULAR, ANIMELIST, dsb yang tidak ada di kusonime)
+  ALL_ANIME: (page = 1) => `/all-anime?page=${page}`,
+  // Movie A-Z
+  MOVIES:    (page = 1) => `/movie?page=${page}`,
+  // Berdasarkan tipe: ona | ova | special
+  TYPE:      (type: string, page = 1) => `/type/${encodeURIComponent(type)}?page=${page}`,
+
+  // ── Genre & Musim ──────────────────────────────────────────
+  GENRES:    '/all-genres',
+  ALL_SEASONS: '/all-seasons',
+  GENRE:     (slug: string, page = 1) => `/genre/${slug}?page=${page}`,
+  SEASON:    (season: string, year: string | number) => `/season/${season}/${year}`,
+
+  // ── Pencarian ──────────────────────────────────────────────
+  SEARCH:    (keyword: string, page = 1) => `/search/${encodeURIComponent(keyword)}?page=${page}`,
+
+  // ── Detail & Episode ───────────────────────────────────────
+  DETAIL:    (slug: string) => `/detail/${slug}`,
+  // Kusonime mungkin belum expose endpoint episode terpisah —
+  // fallback ke detail jika endpoint ini 404
+  EPISODE:   (slug: string) => `/episode/${slug}`,
+
+  // ── Jikan (MAL Alternative — Free, No Auth) ────────────────
   JIKAN_SEASON: (year: number, season: string) => `/seasons/${year}/${season}`,
-  JIKAN_TOP: (filter = 'airing') => `/top/anime?filter=${filter}`,
+  JIKAN_TOP:    (filter = 'airing') => `/top/anime?filter=${filter}`,
   JIKAN_SEARCH: (query: string) => `/anime?q=${encodeURIComponent(query)}&limit=10`,
   JIKAN_DETAIL: (malId: number) => `/anime/${malId}/full`,
 
-  // Comic / Manga (animasu-api — scraper Komiku.org, lihat "Available Endpoints Comic")
-  COMIC_LATEST: (page = 1) => `/comic/terbaru?page=${page}`,
-  COMIC_POPULAR: (page = 1) => `/comic/populer?page=${page}`,
-  COMIC_TRENDING: (page = 1) => `/comic/trending?page=${page}`,
-  COMIC_SEARCH: (q: string, page = 1) => `/comic/search?q=${encodeURIComponent(q)}&page=${page}`,
-  COMIC_DETAIL: (slug: string) => `/comic/comic/${encodeURIComponent(slug)}`,
-  COMIC_CHAPTER: (slug: string) => `/comic/chapter/${encodeURIComponent(slug)}`,
-  COMIC_CHAPTER_NAV: (slug: string) => `/comic/chapter/${encodeURIComponent(slug)}/navigation`,
-  COMIC_GENRES: '/comic/genres',
-  COMIC_GENRE: (slug: string, page = 1) => `/comic/genre/${encodeURIComponent(slug)}?page=${page}`,
-  COMIC_TYPE: (type: string, page = 1) => `/comic/type/${encodeURIComponent(type)}?page=${page}`,
-  COMIC_UNLIMITED: (page = 1) => `/comic/unlimited?page=${page}`,
-  COMIC_HOMEPAGE: '/comic/homepage',
-  COMIC_RANDOM: '/comic/random',
-  COMIC_RECOMMENDATIONS: (page = 1) => `/comic/recommendations?page=${page}`,
-  COMIC_BROWSE: (params: Record<string, string>) => `/comic/browse?${new URLSearchParams(params)}`,
-  COMIC_SCROLL: (offset = 0) => `/comic/scroll?offset=${offset}`,
-  COMIC_INFINITE: (page = 1, type = 'latest') => `/comic/infinite?page=${page}&type=${type}`,
-  COMIC_ADVANCED_SEARCH: (params: Record<string, string>) => `/comic/advanced-search?${new URLSearchParams(params)}`,
-  COMIC_COLORED: (page = 1) => `/comic/berwarna/${page}`,
-  COMIC_LIBRARY: (page = 1) => `/comic/pustaka/${page}`,
+  // ── Comic / Manga (Komiku.org) ─────────────────────────────
+  COMIC_LATEST:           (page = 1) => `/comic/terbaru?page=${page}`,
+  COMIC_POPULAR:          (page = 1) => `/comic/populer?page=${page}`,
+  COMIC_TRENDING:         (page = 1) => `/comic/trending?page=${page}`,
+  COMIC_SEARCH:           (q: string, page = 1) => `/comic/search?q=${encodeURIComponent(q)}&page=${page}`,
+  COMIC_DETAIL:           (slug: string) => `/comic/comic/${encodeURIComponent(slug)}`,
+  COMIC_CHAPTER:          (slug: string) => `/comic/chapter/${encodeURIComponent(slug)}`,
+  COMIC_CHAPTER_NAV:      (slug: string) => `/comic/chapter/${encodeURIComponent(slug)}/navigation`,
+  COMIC_GENRES:           '/comic/genres',
+  COMIC_GENRE:            (slug: string, page = 1) => `/comic/genre/${encodeURIComponent(slug)}?page=${page}`,
+  COMIC_TYPE:             (type: string, page = 1) => `/comic/type/${encodeURIComponent(type)}?page=${page}`,
+  COMIC_UNLIMITED:        (page = 1) => `/comic/unlimited?page=${page}`,
+  COMIC_HOMEPAGE:         '/comic/homepage',
+  COMIC_RANDOM:           '/comic/random',
+  COMIC_RECOMMENDATIONS:  (page = 1) => `/comic/recommendations?page=${page}`,
+  COMIC_BROWSE:           (params: Record<string, string>) => `/comic/browse?${new URLSearchParams(params)}`,
+  COMIC_SCROLL:           (offset = 0) => `/comic/scroll?offset=${offset}`,
+  COMIC_INFINITE:         (page = 1, type = 'latest') => `/comic/infinite?page=${page}&type=${type}`,
+  COMIC_ADVANCED_SEARCH:  (params: Record<string, string>) => `/comic/advanced-search?${new URLSearchParams(params)}`,
+  COMIC_COLORED:          (page = 1) => `/comic/berwarna/${page}`,
+  COMIC_LIBRARY:          (page = 1) => `/comic/pustaka/${page}`,
 
-  // Novel (Sankavollerei — REST API novel, novelId based, konten/katalog dari NovelHub)
-  // Endpoint: /novel/home, /novel/hot-search, /novel/search?q=, /novel/genre/:id, /novel/chapters/:novelId
-  NOVEL_HOME: '/novel/home',
+  // ── Novel (NovelHub via Sankavollerei) ─────────────────────
+  NOVEL_HOME:       '/novel/home',
   NOVEL_HOT_SEARCH: '/novel/hot-search',
-  NOVEL_SEARCH: (q: string) => `/novel/search?q=${encodeURIComponent(q)}`,
-  NOVEL_GENRE: (genreId: string) => `/novel/genre/${encodeURIComponent(genreId)}`,
-  NOVEL_CHAPTERS: (novelId: string) => `/novel/chapters/${encodeURIComponent(novelId)}`,
+  NOVEL_SEARCH:     (q: string) => `/novel/search?q=${encodeURIComponent(q)}`,
+  NOVEL_GENRE:      (genreId: string) => `/novel/genre/${encodeURIComponent(genreId)}`,
+  NOVEL_CHAPTERS:   (novelId: string) => `/novel/chapters/${encodeURIComponent(novelId)}`,
 } as const
