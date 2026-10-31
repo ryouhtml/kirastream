@@ -896,7 +896,9 @@ function extractAnimes(raw: any): Anime[] {
     episode: item.episode != null ? String(item.episode) : (item.latestEpisode != null ? String(item.latestEpisode) : ''),
     type: item.type || item.tipe || '',
     status: item.status || item.status_or_day || item.statusOrDay || '',
-    genres: Array.isArray(item.genres) ? item.genres : (Array.isArray(item.genre) ? item.genre : []),
+    genres: (Array.isArray(item.genres) ? item.genres : (Array.isArray(item.genre) ? item.genre : []))
+      .map((g: any) => (g && typeof g === 'object' ? g.name || g.title || '' : String(g ?? '')))
+      .filter(Boolean),
     release: item.release_day || item.releaseDay || item.release || '',
   }))
 }
