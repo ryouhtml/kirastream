@@ -3,7 +3,7 @@
 
 export const CONFIG = {
   // Anime API (Sankavollerei — Kusonime)
-  ANIME_API: 'https://www.sankavollerei.web.id/anime/kusonime',
+  ANIME_API: 'https://www.sankavollerei.web.id/anime',
 
   // MAL API (MyAnimeList)
   MAL_API: 'https://api.myanimelist.net/v2',
@@ -24,34 +24,20 @@ export const CONFIG = {
   },
 } as const
 
-// API Endpoints — Kusonime
+// API Endpoints — sankavollerei.web.id/anime
 export const ENDPOINTS = {
-  // ── Anime listing ──────────────────────────────────────────
-  // Update Terbaru (Home)
-  HOME:      (page = 1) => `/latest?page=${page}`,
-  // Alias untuk kejelasan — keduanya sama
-  LATEST:    (page = 1) => `/latest?page=${page}`,
-  // Semua anime A-Z (menggantikan POPULAR, ANIMELIST, dsb yang tidak ada di kusonime)
-  ALL_ANIME: (page = 1) => `/all-anime?page=${page}`,
-  // Movie A-Z
-  MOVIES:    (page = 1) => `/movie?page=${page}`,
-  // Berdasarkan tipe: ona | ova | special
-  TYPE:      (type: string, page = 1) => `/type/${encodeURIComponent(type)}?page=${page}`,
-
-  // ── Genre & Musim ──────────────────────────────────────────
-  GENRES:    '/all-genres',
-  ALL_SEASONS: '/all-seasons',
-  GENRE:     (slug: string, page = 1) => `/genre/${slug}?page=${page}`,
-  SEASON:    (season: string, year: string | number) => `/season/${season}/${year}`,
-
-  // ── Pencarian ──────────────────────────────────────────────
-  SEARCH:    (keyword: string, page = 1) => `/search/${encodeURIComponent(keyword)}?page=${page}`,
-
-  // ── Detail & Episode ───────────────────────────────────────
-  DETAIL:    (slug: string) => `/detail/${slug}`,
-  // Kusonime mungkin belum expose endpoint episode terpisah —
-  // fallback ke detail jika endpoint ini 404
-  EPISODE:   (slug: string) => `/episode/${slug}`,
+  HOME:      '/home',
+  SCHEDULE:  '/schedule',
+  ONGOING:   (page = 1) => `/ongoing-anime?page=${page}`,
+  COMPLETE:  (page = 1) => `/complete-anime?page=${page}`,
+  ALL_ANIME: '/unlimited',
+  GENRES:    '/genre',
+  GENRE:     (slug: string, page = 1) => `/genre/${encodeURIComponent(slug)}?page=${page}`,
+  SEARCH:    (keyword: string) => `/search/${encodeURIComponent(keyword)}`,
+  DETAIL:    (slug: string) => `/anime/${encodeURIComponent(slug)}`,
+  EPISODE:   (slug: string) => `/episode/${encodeURIComponent(slug)}`,
+  SERVER:    (id: string) => `/server/${encodeURIComponent(id)}`,
+  BATCH:     (slug: string) => `/batch/${encodeURIComponent(slug)}`,
 
   // ── Jikan (MAL Alternative — Free, No Auth) ────────────────
   JIKAN_SEASON: (year: number, season: string) => `/seasons/${year}/${season}`,
