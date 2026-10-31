@@ -52,7 +52,9 @@ export default function AnimeDetailPage() {
     const loadDetail = async () => {
       setLoading(true)
       try {
-        const data = await fetchDetail(slug)
+        const data = await fetchDetail(slug, (syn) =>
+          setAnime((prev) => (prev ? { ...prev, description: syn } : prev))
+        )
         setAnime(data)
         
         // Check if favorited
@@ -415,7 +417,7 @@ export default function AnimeDetailPage() {
           <div className="card p-6">
             <h2 className="section-title">{t('anime.episodes')}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {anime.episodes.reverse().map((episode) => (
+              {[...anime.episodes].reverse().map((episode) => (
                 <button
                   key={episode.slug}
                   onClick={() => handlePlayEpisode(episode.slug)}
