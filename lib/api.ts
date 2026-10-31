@@ -101,75 +101,75 @@ export interface AnimeSeason {
 }
 
 // ─── ANIME API FUNCTIONS ─────────────────────────────────────
+// Sumber: sankavollerei.web.id/anime  (home, ongoing-anime, complete-anime,
+// genre, schedule, anime/:slug, episode/:slug, server/:id, batch/:slug, search/:kw, unlimited)
 
-// Update terbaru — endpoint utama kusonime
-export async function fetchHome(page = 1): Promise<Anime[]> {
+async function getJSON(path: string): Promise<any> {
+  const { data } = await animeClient.get(path)
+  return data
+}
+
+export async function fetchHome(_page = 1): Promise<Anime[]> {
   try {
-    const { data } = await animeClient.get(ENDPOINTS.HOME(page))
-    return extractAnimes(data)
+    const d = (await getJSON(ENDPOINTS.HOME)).data || {}
+    return [
+      ...extractAnimes({ data: d.ongoing }),
+      ...extractAnimes({ data: d.completed }),
+    ]
   } catch {
     return []
   }
 }
 
+// Anime ongoing (sedang tayang)
 export async function fetchLatest(page = 1): Promise<Anime[]> {
   try {
-    const { data } = await animeClient.get(ENDPOINTS.LATEST(page))
-    return extractAnimes(data)
+    return extractAnimes(await getJSON(ENDPOINTS.ONGOING(page)))
   } catch {
     return []
   }
 }
 
-// Kusonime tidak punya endpoint popular — fallback ke all-anime
-export async function fetchPopular(page = 1): Promise<Anime[]> {
-  return fetchAllAnime(page)
-}
-
-export async function fetchMovies(page = 1): Promise<Anime[]> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.MOVIES(page))
-    return extractAnimes(data)
-  } catch {
-    return []
-  }
-}
-
-// Kusonime tidak punya endpoint ongoing — fallback ke latest
 export async function fetchOngoing(page = 1): Promise<Anime[]> {
   return fetchLatest(page)
 }
 
-// Kusonime tidak punya endpoint completed — return empty
-export async function fetchCompleted(_page = 1): Promise<Anime[]> {
+export async function fetchCompleted(page = 1): Promise<Anime[]> {
+  try {
+    return extractAnimes(await getJSON(ENDPOINTS.COMPLETE(page)))
+  } catch {
+    return []
+  }
+}
+
+// Tidak ada endpoint popular — pakai anime tamat, urut skor tertinggi
+export async function fetchPopular(page = 1): Promise<Anime[]> {
+  const list = await fetchCompleted(page)
+  return [...list].sort((a, b) => (parseFloat(b.score || '0') || 0) - (parseFloat(a.score || '0') || 0))
+}
+
+// Tidak ada endpoint movie khusus — cari kata kunci "movie"
+export async function fetchMovies(page = 1): Promise<Anime[]> {
+  return page > 1 ? [] : searchAnime('movie')
+}
+
+// Semua anime A-Z
+export async function fetchAllAnime(_page = 1): Promise<Anime[]> {
+  try {
+    return extractAnimes(await getJSON(ENDPOINTS.ALL_ANIME))
+  } catch {
+    return []
+  }
+}
+
+export async function fetchByType(_type: string, _page = 1): Promise<Anime[]> {
   return []
 }
 
-// Semua anime A-Z (menggantikan animalist & popular di animasu)
-export async function fetchAllAnime(page = 1): Promise<Anime[]> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.ALL_ANIME(page))
-    return extractAnimes(data)
-  } catch {
-    return []
-  }
-}
-
-// Anime berdasarkan tipe: 'ona' | 'ova' | 'special'
-export async function fetchByType(type: string, page = 1): Promise<Anime[]> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.TYPE(type, page))
-    return extractAnimes(data)
-  } catch {
-    return []
-  }
-}
-
-export async function searchAnime(keyword: string, page = 1): Promise<Anime[]> {
+export async function searchAnime(keyword: string, _page = 1): Promise<Anime[]> {
   if (!keyword.trim()) return []
   try {
-    const { data } = await animeClient.get(ENDPOINTS.SEARCH(keyword, page))
-    return extractAnimes(data)
+    return extractAnimes(await getJSON(ENDPOINTS.SEARCH(keyword)))
   } catch {
     return []
   }
@@ -177,63 +177,52 @@ export async function searchAnime(keyword: string, page = 1): Promise<Anime[]> {
 
 export async function fetchGenres(): Promise<{ name: string; slug: string }[]> {
   try {
-    const { data } = await animeClient.get(ENDPOINTS.GENRES)
-    const list = Array.isArray(data) ? data : (data.data || data.genres || [])
-    return list.map((g: any) => ({
-      name: g.name || g.genre || g.title || g.slug || '',
-      slug: g.slug || (g.name || '').toLowerCase().replace(/\s+/g, '-'),
-    })).filter((g: any) => g.name)
+    const data = await getJSON(ENDPOINTS.GENRES)
+    const list = data?.data?.genreList || data?.data?.genres || data?.genreList || data?.data || []
+    if (!Array.isArray(list)) return []
+    return list
+      .map((g: any) => ({
+        name: g.title || g.name || g.genre || '',
+        slug: g.genreId || g.slug || cleanSlug(g.href || '') || String(g.title || '').toLowerCase().replace(/\s+/g, '-'),
+      }))
+      .filter((g: any) => g.name)
   } catch {
     return []
   }
 }
 
-// Daftar musim/tahun rilis dari kusonime
+
+// Musim tidak tersedia di API ini
 export async function fetchSeasons(): Promise<AnimeSeason[]> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.ALL_SEASONS)
-    const list = Array.isArray(data) ? data : (data.data || data.seasons || [])
-    return list.map((s: any) => ({
-      name: s.name || s.title || s.season || String(s),
-      slug: s.slug || (s.name || String(s)).toLowerCase().replace(/\s+/g, '-'),
-    })).filter((s: any) => s.name)
-  } catch {
-    return []
-  }
+  return []
+}
+
+export async function fetchBySeason(_season: string, _year: string | number): Promise<Anime[]> {
+  return []
 }
 
 export async function fetchByGenre(slug: string, page = 1): Promise<Anime[]> {
   try {
-    const { data } = await animeClient.get(ENDPOINTS.GENRE(slug, page))
-    return extractAnimes(data)
+    return extractAnimes(await getJSON(ENDPOINTS.GENRE(slug, page)))
   } catch {
     return []
   }
 }
 
-// Anime berdasarkan musim: season ('fall'|'winter'|'spring'|'summer') + year
-export async function fetchBySeason(season: string, year: string | number): Promise<Anime[]> {
-  try {
-    const { data } = await animeClient.get(ENDPOINTS.SEASON(season, year))
-    return extractAnimes(data)
-  } catch {
-    return []
-  }
+// Daftar A-Z: filter huruf di sisi klien dari /unlimited
+export async function fetchAnimeList(letter: string, _page = 1): Promise<Anime[]> {
+  const all = await fetchAllAnime()
+  const l = (letter || '').trim().toLowerCase()
+  if (!l || l === 'all') return all
+  return all.filter((a) => (a.title || '').trim().toLowerCase().startsWith(l === '#' ? '' : l))
 }
 
-// fetchAnimeList — di kusonime tidak ada filter by letter, pakai all-anime saja
-export async function fetchAnimeList(_letter: string, page = 1): Promise<Anime[]> {
-  return fetchAllAnime(page)
-}
-
-// Advanced search tidak tersedia di kusonime — fallback ke search biasa
 export async function fetchAdvancedSearch(params: Record<string, string>): Promise<Anime[]> {
   const keyword = params.q || params.keyword || params.search || ''
-  if (keyword) return searchAnime(keyword, Number(params.page) || 1)
-  return fetchAllAnime(Number(params.page) || 1)
+  if (keyword) return searchAnime(keyword)
+  return fetchAllAnime()
 }
 
-// Kusonime tidak punya endpoint characters
 export async function fetchCharacters(): Promise<AnimeCharacterType[]> {
   return []
 }
@@ -242,46 +231,75 @@ export async function fetchByCharacter(_slug: string, _page = 1): Promise<Anime[
   return []
 }
 
-// Kusonime tidak punya endpoint schedule
+// Jadwal rilis per hari → { senin: [...], selasa: [...] }
 export async function fetchSchedule(): Promise<Record<string, Anime[]>> {
-  return {}
+  try {
+    const raw = await getJSON(ENDPOINTS.SCHEDULE)
+    const d = raw?.data ?? raw
+    const out: Record<string, Anime[]> = {}
+    const add = (day: string, list: any) => {
+      const key = String(day || '').trim().toLowerCase().replace("jum'at", 'jumat')
+      if (key) out[key] = extractAnimes({ data: { animeList: list } })
+    }
+    if (Array.isArray(d)) {
+      d.forEach((x: any) => add(x.day || x.hari, x.anime_list || x.animeList || x.anime || []))
+    } else if (Array.isArray(d?.days)) {
+      d.days.forEach((x: any) => add(x.day || x.hari, x.anime_list || x.animeList || x.anime || []))
+    } else if (d && typeof d === 'object') {
+      Object.entries(d).forEach(([k, v]) => Array.isArray(v) && add(k, v))
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+const toText = (v: any): string => {
+  if (v == null) return ''
+  if (Array.isArray(v)) return v.map(toText).filter(Boolean).join(', ')
+  if (typeof v === 'object') return String(v.title || v.name || '')
+  return String(v)
 }
 
 export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void): Promise<AnimeDetail | null> {
   try {
-    const { data } = await animeClient.get(ENDPOINTS.DETAIL(slug))
-    const d = data.detail || data.data || data
+    const raw = await getJSON(ENDPOINTS.DETAIL(slug))
+    const d = raw.data?.detail || raw.data || raw.detail || raw
 
-    const episodes = (d.episodes || d.episodeList || []).map((ep: any) => ({
-      title: ep.name || ep.title || ep.episode || '',
-      slug: ep.slug || cleanSlug(ep.href || ep.url || ep.link || ''),
+    const episodes: Episode[] = (d.episodeList || d.episodes || []).map((ep: any) => ({
+      title: ep.title || ep.name || (ep.eps != null ? `Episode ${ep.eps}` : ''),
+      slug: ep.episodeId || ep.slug || cleanSlug(ep.href || ep.url || ''),
       date: ep.date || ep.uploadDate || '',
-    }))
+    })).filter((e: Episode) => e.slug)
 
-    const genres = (d.genres || d.genreList || []).map((g: any) =>
-      typeof g === 'object' ? (g.name || g.title || '') : g
-    ).filter(Boolean)
+    const genres: string[] = (d.genreList || d.genres || [])
+      .map((g: any) => (typeof g === 'object' ? g.title || g.name || '' : g))
+      .filter(Boolean)
+
+    const synopsis = Array.isArray(d.synopsis?.paragraphs)
+      ? d.synopsis.paragraphs.join('\n\n')
+      : typeof d.synopsis === 'string' ? d.synopsis : (d.description || d.sinopsis || '')
 
     const result: AnimeDetail = {
       title: d.title || '',
-      image: d.poster || d.thumbnail || d.image || d.cover || '',
-      description: d.synopsis || d.description || d.sinopsis || '',
+      image: d.poster || d.image || d.thumbnail || '',
+      description: synopsis,
       info: {
-        japanese: d.japanese || d.synonym || d.alternativeTitle || '',
+        japanese: d.japanese || '',
         type: d.type || 'TV',
-        status: d.status || 'Ongoing',
-        total_episode: d.totalEpisode || d.total_episode || episodes.length || '?',
-        score: d.score || d.rating || 'N/A',
-        duration: d.duration || d.durasi || '?',
+        status: d.status || '',
+        total_episode: toText(d.episodes) || episodes.length || '?',
+        score: toText(d.score) || 'N/A',
+        duration: d.duration || '?',
         season: d.season || '',
-        released: d.aired || d.releaseDate || d.release || d.year || '',
-        producer: d.producer || d.author || d.studio || '',
-        studio: d.studio || d.producer || '',
+        released: d.aired || d.releaseDate || '',
+        producer: toText(d.producers),
+        studio: toText(d.studios),
         genre: genres.join(', '),
       },
       genres,
       episodes,
-      batchSlug: d.batch?.slug || cleanSlug(d.batch?.href || d.batch?.url || ''),
+      batchSlug: d.batch?.batchId || d.batch?.slug || cleanSlug(d.batch?.href || ''),
     }
 
     // Sinkronkan sinopsis dari MAL — di background (tidak memblokir halaman)
@@ -310,41 +328,72 @@ export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void
   }
 }
 
+// Detail episode + link nonton (server di-resolve lewat /server/:serverId)
 export async function fetchEpisode(slug: string): Promise<StreamData | null> {
   try {
-    const { data } = await animeClient.get(ENDPOINTS.EPISODE(slug))
-    const d = data.data || data
+    const raw = await getJSON(ENDPOINTS.EPISODE(slug))
+    const d = raw.data || raw
 
-    const streams = (d.streams || d.server || d.servers || []).map((s: any) => ({
-      server: s.name || s.server || s.title || 'Server',
-      url: s.url || s.embedUrl || s.src || '',
-    })).filter((s: any) => s.url)
+    const streams: { server: string; url: string }[] = []
+    if (d.defaultStreamingUrl) streams.push({ server: 'Default', url: d.defaultStreamingUrl })
+
+    const serverRefs: { label: string; id: string }[] = []
+    const qualities = d.server?.qualities || []
+    qualities.forEach((q: any) =>
+      (q.serverList || []).forEach((s: any) => {
+        if (s.serverId) serverRefs.push({ label: `${s.title || 'Server'} ${q.title || ''}`.trim(), id: s.serverId })
+      })
+    )
+    // Server lama (format flat)
+    ;(Array.isArray(d.streams) ? d.streams : []).forEach((s: any) => {
+      const url = s.url || s.embedUrl || s.src
+      if (url) streams.push({ server: s.name || s.server || s.title || 'Server', url })
+    })
+
+    const resolved = await Promise.allSettled(
+      serverRefs.slice(0, 10).map(async (r) => {
+        const res = await getJSON(ENDPOINTS.SERVER(r.id))
+        const url = res?.data?.url || res?.url || ''
+        return url ? { server: r.label, url } : null
+      })
+    )
+    resolved.forEach((r) => {
+      if (r.status === 'fulfilled' && r.value && !streams.some((s) => s.url === r.value!.url)) streams.push(r.value)
+    })
 
     const downloads: DownloadLink[] = []
-    const dlRaw = d.downloadUrl || d.downloads || d.download || []
+    const dl = d.downloadUrl || d.downloads || d.download
+    const groups = Array.isArray(dl) ? dl : (dl?.qualities || [])
+    groups.forEach((g: any) => {
+      const links = (g.urls || g.links || g.hosts || []).map((l: any) => ({
+        host: l.title || l.name || l.host || '',
+        url: l.url || '',
+      })).filter((l: any) => l.url)
+      if (links.length) downloads.push({ resolution: g.title || g.resolution || g.quality || '', format: g.format || '', links })
+    })
 
-    if (Array.isArray(dlRaw)) {
-      dlRaw.forEach((group: any) => {
-        (group.qualities || group.links || []).forEach((q: any) => {
-          downloads.push({
-            resolution: q.title || q.resolution || q.quality || '',
-            format: group.title || group.format || '',
-            links: (q.urls || q.hosts || []).map((l: any) => ({
-              host: l.title || l.name || l.host || '',
-              url: l.url || '',
-            })),
-          })
-        })
-      })
-    }
-
-    return {
-      title: d.title || data.title || '',
-      streams,
-      downloads,
-    }
+    return { title: d.title || raw.title || '', streams, downloads }
   } catch {
     return null
+  }
+}
+
+// Download batch: /batch/:slug
+export async function fetchBatch(slug: string): Promise<DownloadLink[]> {
+  try {
+    const d = (await getJSON(ENDPOINTS.BATCH(slug))).data || {}
+    const groups = d.downloadUrl?.formats || d.downloadUrl?.qualities || d.downloads || []
+    const out: DownloadLink[] = []
+    groups.forEach((f: any) => {
+      const fmt = f.title || f.format || ''
+      ;(f.qualities || [f]).forEach((q: any) => {
+        const links = (q.urls || q.links || []).map((l: any) => ({ host: l.title || '', url: l.url || '' })).filter((l: any) => l.url)
+        if (links.length) out.push({ resolution: q.title || '', format: fmt, links })
+      })
+    })
+    return out
+  } catch {
+    return []
   }
 }
 
@@ -874,33 +923,32 @@ export async function fetchNovelGenresMap(): Promise<NovelGenreTag[]> {
 // ─── HELPERS ─────────────────────────────────────────────────
 
 function extractAnimes(raw: any): Anime[] {
-  // Kusonime mungkin return: { data: [...] } atau { animeList: [...] } atau langsung array
-  const arr =
-    raw?.animeList ||
-    raw?.animes ||
-    raw?.anime_list ||
-    raw?.results ||
-    raw?.data?.animeList ||
-    raw?.data?.animes ||
-    raw?.data?.results ||
-    raw?.data ||
-    (Array.isArray(raw) ? raw : [])
+  const d = raw?.data ?? raw
+  let arr: any =
+    (Array.isArray(d) ? d : null) ||
+    d?.animeList || d?.anime_list || d?.animes || d?.results || d?.list || d?.data ||
+    raw?.animeList || raw?.animes || raw?.results || []
 
   if (!Array.isArray(arr)) return []
+  // /unlimited: [{ startWith, animeList: [...] }] → ratakan
+  if (arr.length && arr[0] && Array.isArray(arr[0].animeList)) {
+    arr = arr.flatMap((g: any) => g.animeList || [])
+  }
 
+  const toStr = (v: any) => (v == null ? '' : String(v))
   return arr.map((item: any) => ({
     title: item.title || item.judul || '',
-    slug: item.slug || cleanSlug(item.href || item.url || item.link || ''),
+    slug: item.animeId || item.slug || cleanSlug(item.href || item.url || item.link || ''),
     image: item.poster || item.thumbnail || item.image || item.cover || '',
-    score: item.score || item.rating || '',
-    episode: item.episode != null ? String(item.episode) : (item.latestEpisode != null ? String(item.latestEpisode) : ''),
+    score: toStr(item.score || item.rating),
+    episode: toStr(item.episodes ?? item.episode ?? item.latestEpisode),
     type: item.type || item.tipe || '',
     status: item.status || item.status_or_day || item.statusOrDay || '',
-    genres: (Array.isArray(item.genres) ? item.genres : (Array.isArray(item.genre) ? item.genre : []))
-      .map((g: any) => (g && typeof g === 'object' ? g.name || g.title || '' : String(g ?? '')))
+    genres: (Array.isArray(item.genreList) ? item.genreList : Array.isArray(item.genres) ? item.genres : Array.isArray(item.genre) ? item.genre : [])
+      .map((g: any) => (g && typeof g === 'object' ? g.title || g.name || '' : String(g ?? '')))
       .filter(Boolean),
-    release: item.release_day || item.releaseDay || item.release || '',
-  }))
+    release: item.releaseDay || item.release_day || item.latestReleaseDate || item.lastReleaseDate || item.release || '',
+  })).filter((a: Anime) => a.slug)
 }
 
 function cleanSlug(raw = ''): string {
