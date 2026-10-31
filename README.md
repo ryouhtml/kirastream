@@ -30,6 +30,7 @@ Platform streaming anime bersubtitle Indonesia sekaligus tempat baca manga, nove
 - [PWA & Service Worker](#-pwa--service-worker)
 - [Deploy](#-deploy)
 - [Kontribusi](#-kontribusi)
+- [Contributors](#-contributors)
 - [Roadmap](#️-roadmap)
 - [FAQ](#-faq)
 - [Lisensi](#-lisensi)
@@ -243,6 +244,29 @@ Kontribusi sangat terbuka! Untuk berkontribusi:
 5. Buka **Pull Request** ke branch utama
 
 Mohon pastikan kode sudah lolos `npm run lint` sebelum membuka PR.
+
+## 👥 Contributors
+
+Terima kasih kepada semua yang membantu membangun proyek ini. Daftar lengkap tersedia di [CONTRIBUTORS.md](./CONTRIBUTORS.md).
+
+### Author & Maintainer
+
+- **[ryouhtml](https://github.com/ryouhtml)** — author & maintainer repo ini
+- **[kanawangyy-yoikage](https://github.com/kanawangyy-yoikage)** — penulis proyek asli
+
+### AI Assistance
+
+Proyek ini dikembangkan dengan bantuan beberapa asisten AI:
+
+| Tool | Situs |
+| --- | --- |
+| OpenCode | <https://opencode.ai> |
+| Gemini | <https://gemini.google.com> |
+| Claude | <https://claude.ai> |
+| ChatGPT | <https://chatgpt.com> |
+| Grok | <https://grok.com> |
+| Perplexity | <https://www.perplexity.ai> |
+| DeepSeek | <https://www.deepseek.com> |
 
 ## 🗺️ Roadmap
 
