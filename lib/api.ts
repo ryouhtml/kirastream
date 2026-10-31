@@ -247,7 +247,7 @@ export async function fetchSchedule(): Promise<Record<string, Anime[]>> {
   return {}
 }
 
-export async function fetchDetail(slug: string): Promise<AnimeDetail | null> {
+export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void): Promise<AnimeDetail | null> {
   try {
     const { data } = await animeClient.get(ENDPOINTS.DETAIL(slug))
     const d = data.detail || data.data || data
@@ -284,25 +284,25 @@ export async function fetchDetail(slug: string): Promise<AnimeDetail | null> {
       batchSlug: d.batch?.slug || cleanSlug(d.batch?.href || d.batch?.url || ''),
     }
 
-    // Sinkronkan sinopsis dari MAL
-    try {
-      const malId = d.mal_id || d.malId || d.malID
-      let malSynopsis = ''
-      if (malId) {
-        const mal = await fetchMALDetail(Number(malId))
-        malSynopsis = mal?.synopsis || ''
-      } else if (result.title) {
-        const hits = await searchMAL(result.title)
-        const best = hits[0]
-        if (best?.mal_id) {
-          const mal = await fetchMALDetail(best.mal_id)
-          malSynopsis = mal?.synopsis || best.synopsis || ''
+    // Sinkronkan sinopsis dari MAL — di background (tidak memblokir halaman)
+    const malId = d.mal_id || d.malId || d.malID
+    ;(async () => {
+      try {
+        let malSynopsis = ''
+        if (malId) {
+          malSynopsis = (await fetchMALDetail(Number(malId)))?.synopsis || ''
+        } else if (result.title) {
+          const best = (await searchMAL(result.title))[0]
+          if (best?.mal_id) {
+            malSynopsis = (await fetchMALDetail(best.mal_id))?.synopsis || best.synopsis || ''
+          }
         }
-      }
-      if (malSynopsis) result.description = malSynopsis
-    } catch {
-      // tetap pakai sinopsis bawaan kalau MAL gagal
-    }
+        if (malSynopsis) {
+          result.description = malSynopsis
+          onSynopsis?.(malSynopsis)
+        }
+      } catch {}
+    })()
 
     return result
   } catch {
