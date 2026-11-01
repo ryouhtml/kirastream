@@ -1228,7 +1228,7 @@ function extractAnimes(raw: any): Anime[] {
   const toStr = (v: any) => (v == null ? '' : String(v))
   return arr.map((item: any) => ({
     title: item.title || item.judul || '',
-    slug: item.slug || item.animeId || cleanSlug(item.href || item.url || item.link || ''),
+    slug: animeSlugOf(item) || cleanSlug(item.href || item.url || item.link || ''),
     image: item.poster || item.thumbnail || item.image || item.cover || item.img || item.imageUrl || '',
     score: toStr(item.score || item.rating),
     episode: toStr(item.episodes ?? item.episode ?? item.latestEpisode),
@@ -1239,6 +1239,20 @@ function extractAnimes(raw: any): Anime[] {
       .filter(Boolean),
     release: item.releaseDay || item.release_day || item.latestReleaseDate || item.lastReleaseDate || item.release || '',
   })).filter((a: Anime) => a.slug)
+}
+
+// Daftar "terbaru" berisi item EPISODE (slug: "judul-episode-5-subtitle-indonesia"),
+// padahal halaman /detail/:slug butuh slug anime. Pakai field slug anime jika ada,
+// kalau tidak, buang akhiran "-episode-N..." dari slug episode.
+const EPISODE_SUFFIX = /-(?:episode|eps?)-\d+(?:[-\w]*)?$/i
+
+function animeSlugOf(item: any): string {
+  const explicit =
+    item.animeSlug || item.anime_slug || item.seriesSlug || item.series_slug ||
+    item.anime?.slug || item.series?.slug || ''
+  if (explicit) return String(explicit)
+  const raw = String(item.slug || item.animeId || cleanSlug(item.href || item.url || item.link || ''))
+  return raw.replace(EPISODE_SUFFIX, '') || raw
 }
 
 function cleanSlug(raw = ''): string {

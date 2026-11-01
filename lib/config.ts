@@ -24,6 +24,14 @@ export const CONFIG = {
   },
 } as const
 
+// Slug dari API kadang sudah ter-encode (mis. "%e2%98%85"). Decode dulu baru encode,
+// supaya tidak jadi double-encode ("%25e2...") yang membuat 404.
+const enc = (v: string) => {
+  let s = String(v)
+  try { s = decodeURIComponent(s) } catch {}
+  return encodeURIComponent(s)
+}
+
 // API Endpoints — sankavollerei.web.id/anime/animekompi
 export const ENDPOINTS = {
   HOME:       '/home',
@@ -34,20 +42,20 @@ export const ENDPOINTS = {
   MOVIE:      (page = 1) => `/movie?page=${page}&order=update`,
   UPCOMING:   (page = 1) => `/upcoming?page=${page}`,
   BATCH_LIST: (page = 1) => `/batch?page=${page}&order=update`,
-  TYPE:       (slug: string, page = 1) => `/type/${encodeURIComponent(slug)}?page=${page}`,
+  TYPE:       (slug: string, page = 1) => `/type/${enc(slug)}?page=${page}`,
   ALL_ANIME:  '/list',
-  AZ:         (letter: string, page = 1, limit = 24) => `/az?letter=${encodeURIComponent(letter)}&page=${page}&limit=${limit}`,
+  AZ:         (letter: string, page = 1, limit = 24) => `/az?letter=${enc(letter)}&page=${page}&limit=${limit}`,
   GENRES:     '/genres',
-  GENRE:      (slug: string, page = 1) => `/genre/${encodeURIComponent(slug)}?page=${page}`,
+  GENRE:      (slug: string, page = 1) => `/genre/${enc(slug)}?page=${page}`,
   SEASONS:    '/seasons',
-  SEASON:     (slug: string, page = 1) => `/season/${encodeURIComponent(slug)}?page=${page}`,
-  STUDIO:     (slug: string, page = 1) => `/studio/${encodeURIComponent(slug)}?page=${page}`,
-  SEARCH:     (keyword: string, page = 1) => `/search?q=${encodeURIComponent(keyword)}&page=${page}`,
-  SUGGEST:    (keyword: string) => `/search/suggest?q=${encodeURIComponent(keyword)}`,
+  SEASON:     (slug: string, page = 1) => `/season/${enc(slug)}?page=${page}`,
+  STUDIO:     (slug: string, page = 1) => `/studio/${enc(slug)}?page=${page}`,
+  SEARCH:     (keyword: string, page = 1) => `/search?q=${enc(keyword)}&page=${page}`,
+  SUGGEST:    (keyword: string) => `/search/suggest?q=${enc(keyword)}`,
   FILTER:     (params: Record<string, string>) => `/filter?${new URLSearchParams(params)}`,
-  DETAIL:     (slug: string) => `/detail/${encodeURIComponent(slug)}`,
-  EPISODE:    (slug: string) => `/episode/${encodeURIComponent(slug)}`,
-  MIRRORS:    (slug: string) => `/episode/${encodeURIComponent(slug)}/mirrors`,
+  DETAIL:     (slug: string) => `/detail/${enc(slug)}`,
+  EPISODE:    (slug: string) => `/episode/${enc(slug)}`,
+  MIRRORS:    (slug: string) => `/episode/${enc(slug)}/mirrors`,
   LIVE_ACTION:(page = 1) => `/live-action?page=${page}&order=update`,
   DONGHUA:    (page = 1) => `/donghua?page=${page}&order=update`,
   TOKUSATSU:  (page = 1) => `/tokusatsu?page=${page}&order=update`,
@@ -56,14 +64,14 @@ export const ENDPOINTS = {
   STATUSES:   '/status',
   TYPES:      '/types',
   ORDERS:     '/orders',
-  STATUS:     (slug: string, page = 1) => `/status/${encodeURIComponent(slug)}?page=${page}`,
-  ORDER:      (slug: string, page = 1) => `/order/${encodeURIComponent(slug)}?page=${page}`,
-  GENRE_DETAIL:(slug: string) => `/genre-detail/${encodeURIComponent(slug)}`,
-  DANMAKU:    (slug: string) => `/episode/${encodeURIComponent(slug)}/danmaku`,
-  COMMENTS:   (slug: string) => `/episode/${encodeURIComponent(slug)}/comments`,
-  REACTIONS:  (slug: string) => `/episode/${encodeURIComponent(slug)}/reactions`,
+  STATUS:     (slug: string, page = 1) => `/status/${enc(slug)}?page=${page}`,
+  ORDER:      (slug: string, page = 1) => `/order/${enc(slug)}?page=${page}`,
+  GENRE_DETAIL:(slug: string) => `/genre-detail/${enc(slug)}`,
+  DANMAKU:    (slug: string) => `/episode/${enc(slug)}/danmaku`,
+  COMMENTS:   (slug: string) => `/episode/${enc(slug)}/comments`,
+  REACTIONS:  (slug: string) => `/episode/${enc(slug)}/reactions`,
   SETTINGS:   '/settings',
-  TOOLTIP:    (slug: string) => `/tooltip/${encodeURIComponent(slug)}`,
+  TOOLTIP:    (slug: string) => `/tooltip/${enc(slug)}`,
 
   // ── Jikan (MAL Alternative — Free, No Auth) ────────────────
   JIKAN_SEASON: (year: number, season: string) => `/seasons/${year}/${season}`,
