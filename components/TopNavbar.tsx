@@ -27,7 +27,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
 import { motionTokens, adaptiveDuration } from '@/lib/motionTokens'
-import { LiquidGlassCursorButton, LiquidGlassCursorLink } from './LiquidGlassCursor'
 
 interface NavItem {
   label: string
@@ -40,11 +39,8 @@ const MotionLink = motion(Link)
 export default function TopNavbar() {
   const router = useRouter()
   const { user, profile, loading: authLoading, logout } = useAuth()
-  const { language, liquidGlass } = useSettings()
+  const { language } = useSettings()
   const t = (key: string) => translate(language, key)
-  // Glass nav pills always use the cursor-following liquid glass effect.
-  const GlassButton = LiquidGlassCursorButton
-  const GlassLink = LiquidGlassCursorLink
 
   const NAV_LINKS: NavItem[] = [
     { label: t('nav.home'), href: '/', icon: <Home size={16} /> },
@@ -198,24 +194,13 @@ export default function TopNavbar() {
         <div className="mx-auto max-w-[1600px] h-full px-4 md:px-6 lg:px-8 flex items-center justify-between gap-4">
           {/* Left: Logo + mobile menu */}
           <div className="flex items-center gap-3">
-            {liquidGlass ? (
-              <GlassButton
-                onClick={() => setDrawerOpen(!drawerOpen)}
-                className="lg:hidden !rounded-full text-[var(--color-text)]"
-                iconOnly
-                aria-label={t('nav.openMenu')}
-              >
-                {drawerOpen ? <X size={22} /> : <Menu size={22} />}
-              </GlassButton>
-            ) : (
-              <button
-                onClick={() => setDrawerOpen(!drawerOpen)}
-                className="lg:hidden p-2 rounded-lg bg-surface dark:bg-surface-dark text-[var(--color-text)] hover:bg-pearl/10 transition-colors"
-                aria-label={t('nav.openMenu')}
-              >
-                {drawerOpen ? <X size={22} /> : <Menu size={22} />}
-              </button>
-            )}
+            <button
+              onClick={() => setDrawerOpen(!drawerOpen)}
+              className="lg:hidden p-2 rounded-lg bg-surface dark:bg-surface-dark text-[var(--color-text)] hover:bg-pearl/10 transition-colors"
+              aria-label={t('nav.openMenu')}
+            >
+              {drawerOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
             <Link href="/" className="flex items-center gap-2 transition-transform hover:scale-105">
               <Image src="/icons/icon-96x96.png" alt="" width={32} height={32} className="rounded-lg" />
               <Image src="/logo-title.png" alt="KiraStream" width={110} height={36} className="h-7 w-auto object-contain" priority />
@@ -224,220 +209,121 @@ export default function TopNavbar() {
 
           {/* Center: Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1 flex-1 justify-center">
-            {NAV_LINKS.map((link) =>
-              liquidGlass && isActive(link.href) ? (
-                <GlassLink
-                  key={link.href}
-                  href={link.href}
-                  className="group !rounded-full !px-3.5 !py-2"
-                  labelClassName="!text-primary dark:!text-accent"
-                >
-                  {link.icon} {link.label}
-                </GlassLink>
-              ) : (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`relative z-0 flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    isActive(link.href)
-                      ? 'text-primary dark:text-accent'
-                      : 'text-[var(--color-text-muted)] hover:text-primary dark:hover:text-accent'
-                  }`}
-                >
-                  {isActive(link.href) && (
-                    <motion.span
-                      layoutId="nav-active-pill"
-                      transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 350, damping: 32 }}
-                      className="absolute inset-0 -z-10 rounded-lg bg-primary/10 dark:bg-accent/15 pointer-events-none"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {link.icon} {link.label}
-                </Link>
-              )
-            )}
-            {SOCIAL_LINKS.map((link) =>
-              liquidGlass && isActive(link.href) ? (
-                <GlassLink
-                  key={link.href}
-                  href={link.href}
-                  className="group !rounded-full !px-3.5 !py-2"
-                  labelClassName="!text-primary dark:!text-accent"
-                >
-                  {link.icon} {link.label}
-                </GlassLink>
-              ) : (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`relative z-0 flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    isActive(link.href)
-                      ? 'text-primary dark:text-accent'
-                      : 'text-[var(--color-text-muted)] hover:text-primary dark:hover:text-accent'
-                  }`}
-                >
-                  {isActive(link.href) && (
-                    <motion.span
-                      layoutId="nav-active-pill"
-                      transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 350, damping: 32 }}
-                      className="absolute inset-0 -z-10 rounded-lg bg-primary/10 dark:bg-accent/15 pointer-events-none"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {link.icon} {link.label}
-                </Link>
-              )
-            )}
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`relative z-0 flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  isActive(link.href)
+                    ? 'text-primary dark:text-accent'
+                    : 'text-[var(--color-text-muted)] hover:text-primary dark:hover:text-accent'
+                }`}
+              >
+                {isActive(link.href) && (
+                  <motion.span
+                    layoutId="nav-active-pill"
+                    transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 350, damping: 32 }}
+                    className="absolute inset-0 -z-10 rounded-lg bg-primary/10 dark:bg-accent/15 pointer-events-none"
+                    aria-hidden="true"
+                  />
+                )}
+                {link.icon} {link.label}
+              </Link>
+            ))}
+            {SOCIAL_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`relative z-0 flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  isActive(link.href)
+                    ? 'text-primary dark:text-accent'
+                    : 'text-[var(--color-text-muted)] hover:text-primary dark:hover:text-accent'
+                }`}
+              >
+                {isActive(link.href) && (
+                  <motion.span
+                    layoutId="nav-active-pill"
+                    transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 350, damping: 32 }}
+                    className="absolute inset-0 -z-10 rounded-lg bg-primary/10 dark:bg-accent/15 pointer-events-none"
+                    aria-hidden="true"
+                  />
+                )}
+                {link.icon} {link.label}
+              </Link>
+            ))}
           </nav>
 
           {/* Right: Actions */}
           <div className="flex items-center gap-1.5">
-            {liquidGlass ? (
-              <GlassButton
-                onClick={() => setSearchOpen(!searchOpen)}
-                className="!rounded-full text-[var(--color-text)]"
-                iconOnly
-                aria-label={t('nav.search')}
-              >
-                <Search size={20} aria-hidden="true" />
-              </GlassButton>
-            ) : (
-              <button
-                onClick={() => setSearchOpen(!searchOpen)}
-                className="p-2 rounded-lg bg-surface dark:bg-surface-dark text-[var(--color-text)] hover:bg-pearl/10 transition-colors"
-                aria-label={t('nav.search')}
-              >
-                <Search size={20} aria-hidden="true" />
-              </button>
-            )}
+            <button
+              onClick={() => setSearchOpen(!searchOpen)}
+              className="p-2 rounded-lg bg-surface dark:bg-surface-dark text-[var(--color-text)] hover:bg-pearl/10 transition-colors"
+              aria-label={t('nav.search')}
+            >
+              <Search size={20} aria-hidden="true" />
+            </button>
 
-            {liquidGlass ? (
-              <GlassButton
-                onClick={toggleTheme}
-                className="!rounded-full text-[var(--color-text)]"
-                iconOnly
-                aria-label={t('nav.toggleTheme')}
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  {isDark ? (
-                    <motion.span
-                      key="theme-sun"
-                      initial={themeIconInitial}
-                      animate={themeIconAnimate}
-                      exit={themeIconExit}
-                      transition={themeIconTransition}
-                      className="flex"
-                    >
-                      <Sun size={20} aria-hidden="true" />
-                    </motion.span>
-                  ) : (
-                    <motion.span
-                      key="theme-moon"
-                      initial={themeIconInitial}
-                      animate={themeIconAnimate}
-                      exit={themeIconExit}
-                      transition={themeIconTransition}
-                      className="flex"
-                    >
-                      <Moon size={20} aria-hidden="true" />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </GlassButton>
-            ) : (
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-lg bg-surface dark:bg-surface-dark text-[var(--color-text)] hover:bg-pearl/10 transition-colors"
-                aria-label={t('nav.toggleTheme')}
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  {isDark ? (
-                    <motion.span
-                      key="theme-sun"
-                      initial={themeIconInitial}
-                      animate={themeIconAnimate}
-                      exit={themeIconExit}
-                      transition={themeIconTransition}
-                      className="flex"
-                    >
-                      <Sun size={20} aria-hidden="true" />
-                    </motion.span>
-                  ) : (
-                    <motion.span
-                      key="theme-moon"
-                      initial={themeIconInitial}
-                      animate={themeIconAnimate}
-                      exit={themeIconExit}
-                      transition={themeIconTransition}
-                      className="flex"
-                    >
-                      <Moon size={20} aria-hidden="true" />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </button>
-            )}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg bg-surface dark:bg-surface-dark text-[var(--color-text)] hover:bg-pearl/10 transition-colors"
+              aria-label={t('nav.toggleTheme')}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {isDark ? (
+                  <motion.span
+                    key="theme-sun"
+                    initial={themeIconInitial}
+                    animate={themeIconAnimate}
+                    exit={themeIconExit}
+                    transition={themeIconTransition}
+                    className="flex"
+                  >
+                    <Sun size={20} aria-hidden="true" />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="theme-moon"
+                    initial={themeIconInitial}
+                    animate={themeIconAnimate}
+                    exit={themeIconExit}
+                    transition={themeIconTransition}
+                    className="flex"
+                  >
+                    <Moon size={20} aria-hidden="true" />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </button>
 
-            {liquidGlass ? (
-              <GlassLink
-                href="/settings"
-                className="!rounded-full"
-                iconOnly
-                aria-label={t('nav.settings')}
-              >
-                <Settings size={20} aria-hidden="true" />
-              </GlassLink>
-            ) : (
-              <Link
-                href="/settings"
-                className="p-2 rounded-lg bg-surface dark:bg-surface-dark text-[var(--color-text)] hover:bg-pearl/10 transition-colors"
-                aria-label={t('nav.settings')}
-              >
-                <Settings size={20} aria-hidden="true" />
-              </Link>
-            )}
+            <Link
+              href="/settings"
+              className="p-2 rounded-lg bg-surface dark:bg-surface-dark text-[var(--color-text)] hover:bg-pearl/10 transition-colors"
+              aria-label={t('nav.settings')}
+            >
+              <Settings size={20} aria-hidden="true" />
+            </Link>
 
             {authLoading ? (
               <div className="hidden sm:block w-9 h-9 rounded-full bg-pearl/10 animate-pulse" />
             ) : user ? (
               <div ref={profileMenuRef} className="hidden sm:relative sm:block">
-                {liquidGlass ? (
-                  <GlassButton
-                    onClick={() => setProfileMenuOpen((v) => !v)}
-                    className="!rounded-full !pl-1 !pr-2 !py-1"
-                    aria-haspopup="menu"
-                    aria-expanded={profileMenuOpen}
-                  >
-                    <div className="w-8 h-8 rounded-full bg-primary dark:bg-accent flex items-center justify-center overflow-hidden">
-                      {profile?.photoURL ? (
-                        <img src={profile.photoURL} alt={profile?.displayName || 'Avatar'} className="w-full h-full object-cover" />
-                      ) : (
-                        <User size={16} className="text-white" />
-                      )}
-                    </div>
-                    <span className="hidden xl:block text-sm font-semibold max-w-[100px] truncate text-[var(--color-text)]">
-                      {profile?.displayName || user.displayName || 'KiraFan'}
-                    </span>
-                  </GlassButton>
-                ) : (
-                  <button
-                    onClick={() => setProfileMenuOpen((v) => !v)}
-                    className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-full border border-pearl/10 hover:bg-pearl/10 transition-colors"
-                    aria-haspopup="menu"
-                    aria-expanded={profileMenuOpen}
-                  >
-                    <div className="w-8 h-8 rounded-full bg-primary dark:bg-accent flex items-center justify-center overflow-hidden">
-                      {profile?.photoURL ? (
-                        <img src={profile.photoURL} alt={profile?.displayName || 'Avatar'} className="w-full h-full object-cover" />
-                      ) : (
-                        <User size={16} className="text-white" />
-                      )}
-                    </div>
-                    <span className="hidden xl:block text-sm font-semibold max-w-[100px] truncate">
-                      {profile?.displayName || user.displayName || 'KiraFan'}
-                    </span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setProfileMenuOpen((v) => !v)}
+                  className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-full border border-pearl/10 hover:bg-pearl/10 transition-colors"
+                  aria-haspopup="menu"
+                  aria-expanded={profileMenuOpen}
+                >
+                  <div className="w-8 h-8 rounded-full bg-primary dark:bg-accent flex items-center justify-center overflow-hidden">
+                    {profile?.photoURL ? (
+                      <img src={profile.photoURL} alt={profile?.displayName || 'Avatar'} className="w-full h-full object-cover" />
+                    ) : (
+                      <User size={16} className="text-white" />
+                    )}
+                  </div>
+                  <span className="hidden xl:block text-sm font-semibold max-w-[100px] truncate">
+                    {profile?.displayName || user.displayName || 'KiraFan'}
+                  </span>
+                </button>
 
                 {profileMenuOpen && (
                   <div

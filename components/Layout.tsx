@@ -8,7 +8,6 @@ import InstallPwaPrompt from './InstallPwaPrompt'
 import { motionTokens, adaptiveDuration } from '@/lib/motionTokens'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
-import { LiquidGlassViewport } from './LiquidGlassViewport'
 
 interface LayoutProps {
   children: ReactNode
@@ -16,7 +15,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter()
-  const { language, liquidGlass } = useSettings()
+  const { language } = useSettings()
   const t = (key: string) => translate(language, key)
 
   const appShell = (
@@ -51,16 +50,7 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-bg-light dark:bg-bg-dark text-[var(--color-text)] transition-colors duration-300 flex flex-col">
-      {liquidGlass ? (
-        <LiquidGlassViewport bgImage="/liquid-glass-bg.svg" className="min-h-screen flex flex-col select-text">
-          {/* Translucent adapted bg keeps light-mode text readable over the aurora backdrop.
-              NO backdrop-filter here: a filter on this wrapper would become the containing
-              block for the fixed .site-header and break sticky nav. */}
-          <div className="relative z-10 flex-1 flex flex-col bg-bg-light/75 dark:bg-bg-dark/75">{appShell}</div>
-        </LiquidGlassViewport>
-      ) : (
-        appShell
-      )}
+      {appShell}
     </div>
   )
 }

@@ -6,7 +6,6 @@ export type AccentKey = 'blue' | 'violet' | 'emerald' | 'rose' | 'amber' | 'cyan
 export interface Settings {
   accent: AccentKey
   animations: boolean
-  liquidGlass: boolean
   language: LanguageCode
   readerScrollDistance: number
 }
@@ -14,7 +13,6 @@ export interface Settings {
 interface SettingsContextType extends Settings {
   setAccent: (accent: AccentKey) => void
   setAnimations: (animations: boolean) => void
-  setLiquidGlass: (liquidGlass: boolean) => void
   setLanguage: (language: LanguageCode) => void
   setReaderScrollDistance: (distance: number) => void
 }
@@ -33,7 +31,6 @@ const STORAGE_KEY = 'kiranime-settings'
 export const DEFAULT_SETTINGS: Settings = {
   accent: 'blue',
   animations: true,
-  liquidGlass: true,
   language: 'id',
   readerScrollDistance: 90,
 }
@@ -54,8 +51,6 @@ function readStoredSettings(): Settings {
       accent: (parsed.accent as AccentKey) ?? DEFAULT_SETTINGS.accent,
       animations:
         typeof parsed.animations === 'boolean' ? parsed.animations : DEFAULT_SETTINGS.animations,
-      liquidGlass:
-        typeof parsed.liquidGlass === 'boolean' ? parsed.liquidGlass : DEFAULT_SETTINGS.liquidGlass,
       language: (parsed.language as LanguageCode) ?? DEFAULT_SETTINGS.language,
       readerScrollDistance: clampScrollDistance(parsed.readerScrollDistance),
     }
@@ -69,7 +64,6 @@ function applySettingsToDocument(settings: Settings) {
   const root = document.documentElement
   root.setAttribute('data-accent', settings.accent)
   root.setAttribute('data-animations', settings.animations ? 'on' : 'off')
-  root.setAttribute('data-liquid-glass', settings.liquidGlass ? 'on' : 'off')
   root.lang = settings.language
   root.dir = getLanguageMeta(settings.language).dir
 }
@@ -94,7 +88,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const setAccent = (accent: AccentKey) => setSettings((s) => ({ ...s, accent }))
   const setAnimations = (animations: boolean) => setSettings((s) => ({ ...s, animations }))
-  const setLiquidGlass = (liquidGlass: boolean) => setSettings((s) => ({ ...s, liquidGlass }))
   const setLanguage = (language: LanguageCode) => setSettings((s) => ({ ...s, language }))
   const setReaderScrollDistance = (readerScrollDistance: number) =>
     setSettings((s) => ({ ...s, readerScrollDistance: clampScrollDistance(readerScrollDistance) }))
@@ -105,7 +98,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         ...settings,
         setAccent,
         setAnimations,
-        setLiquidGlass,
         setLanguage,
         setReaderScrollDistance,
       }}

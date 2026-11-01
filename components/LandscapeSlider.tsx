@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import LandscapeSpotlight, { type SpotlightItem } from './LandscapeSpotlight'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
-import { LiquidGlassCursorButton } from './LiquidGlassCursor'
 import { useAnimationsEnabled } from '@/lib/hooks/useAnimations'
 
 interface LandscapeSliderProps {
@@ -18,9 +17,8 @@ export default function LandscapeSlider({ items, imageProxy, interval = 2000 }: 
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const reduceMotion = useAnimationsEnabled()
-  const { language, liquidGlass } = useSettings()
+  const { language } = useSettings()
   const t = (key: string) => translate(language, key)
-  const GlassButton = LiquidGlassCursorButton
 
   const goTo = useCallback((i: number) => {
     setIndex(((i % items.length) + items.length) % items.length)
@@ -120,42 +118,20 @@ export default function LandscapeSlider({ items, imageProxy, interval = 2000 }: 
       {items.length > 1 && (
         <>
           {/* Prev / Next */}
-          {liquidGlass ? (
-            <GlassButton
-              onClick={prev}
-              aria-label={t('slider.previous')}
-              className="!absolute left-3 top-1/2 -translate-y-1/2 z-20 hidden sm:flex !w-10 !h-10 !p-0 !rounded-full text-white hover:scale-105 focus-visible:opacity-100 !transition-[opacity,transform] opacity-0 group-hover:opacity-100"
-              labelClassName="!text-white"
-            >
-              <ChevronLeft size={20} aria-hidden="true" />
-            </GlassButton>
-          ) : (
-            <button
-              onClick={prev}
-              aria-label={t('slider.previous')}
-              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm text-white border border-white/20 hover:bg-black/75 hover:scale-105 focus-visible:opacity-100 transition-[opacity,transform,background-color] opacity-0 group-hover:opacity-100"
-            >
-              <ChevronLeft size={20} aria-hidden="true" />
-            </button>
-          )}
-          {liquidGlass ? (
-            <GlassButton
-              onClick={next}
-              aria-label={t('slider.next')}
-              className="!absolute right-3 top-1/2 -translate-y-1/2 z-20 hidden sm:flex !w-10 !h-10 !p-0 !rounded-full text-white hover:scale-105 focus-visible:opacity-100 !transition-[opacity,transform] opacity-0 group-hover:opacity-100"
-              labelClassName="!text-white"
-            >
-              <ChevronRight size={20} aria-hidden="true" />
-            </GlassButton>
-          ) : (
-            <button
-              onClick={next}
-              aria-label={t('slider.next')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm text-white border border-white/20 hover:bg-black/75 hover:scale-105 focus-visible:opacity-100 transition-[opacity,transform,background-color] opacity-0 group-hover:opacity-100"
-            >
-              <ChevronRight size={20} aria-hidden="true" />
-            </button>
-          )}
+          <button
+            onClick={prev}
+            aria-label={t('slider.previous')}
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm text-white border border-white/20 hover:bg-black/75 hover:scale-105 focus-visible:opacity-100 transition-[opacity,transform,background-color] opacity-0 group-hover:opacity-100"
+          >
+            <ChevronLeft size={20} aria-hidden="true" />
+          </button>
+          <button
+            onClick={next}
+            aria-label={t('slider.next')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm text-white border border-white/20 hover:bg-black/75 hover:scale-105 focus-visible:opacity-100 transition-[opacity,transform,background-color] opacity-0 group-hover:opacity-100"
+          >
+            <ChevronRight size={20} aria-hidden="true" />
+          </button>
 
           {/* Dots */}
           <div className="absolute bottom-4 left-5 z-20 flex items-center gap-2">

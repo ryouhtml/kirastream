@@ -1,5 +1,5 @@
 import Head from 'next/head'
-import { Palette, Sparkles, Droplets, Languages, MoveVertical, Settings as SettingsIcon, Check } from 'lucide-react'
+import { Palette, Sparkles, Languages, MoveVertical, Settings as SettingsIcon, Check } from 'lucide-react'
 import { ACCENT_COLORS, AccentKey, useSettings } from '@/contexts/SettingsContext'
 import { LANGUAGES, translate } from '@/lib/i18n'
 
@@ -42,12 +42,10 @@ export default function SettingsPage() {
   const {
     accent,
     animations,
-    liquidGlass,
     language,
     readerScrollDistance,
     setAccent,
     setAnimations,
-    setLiquidGlass,
     setLanguage,
     setReaderScrollDistance,
   } = useSettings()
@@ -123,39 +121,6 @@ export default function SettingsPage() {
               <span
                 className={`absolute top-1 left-1 block h-6 w-6 aspect-square rounded-full bg-white shadow transition-transform ${
                   animations ? 'translate-x-6' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          icon={<Droplets size={20} aria-hidden="true" />}
-          title={t('settings.liquidGlass')}
-          desc={t('settings.liquidGlassDesc')}
-          badge={
-            <span className="inline-flex items-center rounded-full bg-ocean/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ocean">
-              {t('settings.beta')}
-            </span>
-          }
-        >
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>
-              {liquidGlass ? t('settings.on') : t('settings.off')}
-            </p>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={liquidGlass}
-              aria-label={t('settings.liquidGlass')}
-              onClick={() => setLiquidGlass(!liquidGlass)}
-              className={`relative h-8 w-14 shrink-0 rounded-full p-0 transition-colors ${
-                liquidGlass ? 'bg-ocean' : 'bg-pearl/20'
-              }`}
-            >
-              <span
-                className={`absolute top-1 left-1 block h-6 w-6 aspect-square rounded-full bg-white shadow transition-transform ${
-                  liquidGlass ? 'translate-x-6' : 'translate-x-0'
                 }`}
               />
             </button>
