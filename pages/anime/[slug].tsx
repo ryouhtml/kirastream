@@ -16,6 +16,7 @@ import {
   type WatchlistStatus 
 } from '@/lib/firebase'
 import ShareModal from '@/components/ShareModal'
+import EpisodeExtras from '@/components/EpisodeExtras'
 
 export default function AnimeDetailPage() {
   const router = useRouter()
@@ -237,6 +238,8 @@ export default function AnimeDetailPage() {
                 </div>
               </details>
             )}
+
+            {playingEpisode && <EpisodeExtras episodeSlug={playingEpisode} />}
           </motion.div>
         )}
 

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { Home, Flame, PlayCircle, CheckCircle, Calendar, Tags, Clapperboard, BookOpen, ScrollText, BookMarked } from 'lucide-react'
+import { Home, Flame, PlayCircle, CheckCircle, Calendar, Tags, Clapperboard, BookOpen, ScrollText, BookMarked, CalendarClock, Package, Film, Sparkles, Shield, Compass, SlidersHorizontal } from 'lucide-react'
 import AZList from './AZList'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
@@ -13,6 +13,13 @@ const MENU_ITEMS = [
   { labelKey: 'footer.movies', href: '/movies', icon: Clapperboard },
   { labelKey: 'footer.schedule', href: '/schedule', icon: Calendar },
   { labelKey: 'footer.genres', href: '/genres', icon: Tags },
+  { labelKey: 'ak.upcoming', href: '/upcoming', icon: CalendarClock },
+  { labelKey: 'ak.batch', href: '/batch', icon: Package },
+  { labelKey: 'ak.liveaction', href: '/live-action', icon: Film },
+  { labelKey: 'ak.donghua', href: '/donghua', icon: Sparkles },
+  { labelKey: 'ak.tokusatsu', href: '/tokusatsu', icon: Shield },
+  { labelKey: 'ak.explore', href: '/explore', icon: Compass },
+  { labelKey: 'ak.filter', href: '/filter', icon: SlidersHorizontal },
 ]
 
 const OTHER_LINKS = [

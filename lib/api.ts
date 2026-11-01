@@ -3,7 +3,7 @@ import { CONFIG, ENDPOINTS } from './config'
 
 // ─── API CLIENTS ─────────────────────────────────────────────
 
-// Anime API Client (Sankavollerei — Kusonime)
+// Anime API Client (Sankavollerei — Animekompi)
 const animeClient: AxiosInstance = axios.create({
   baseURL: CONFIG.ANIME_API,
   timeout: 15000,
@@ -101,33 +101,43 @@ export interface AnimeSeason {
 }
 
 // ─── ANIME API FUNCTIONS ─────────────────────────────────────
-// Sumber: sankavollerei.web.id/anime  (home, ongoing-anime, complete-anime,
-// genre, schedule, anime/:slug, episode/:slug, server/:id, batch/:slug, search/:kw, unlimited)
+// Sumber: sankavollerei.web.id/anime/animekompi (home, terbaru, batch, movie, schedule,
+// list, az, search, filter, genres, genre/:slug, seasons, season/:slug, detail/:slug,
+// episode/:slug, episode/:slug/mirrors, ...)
 
 async function getJSON(path: string): Promise<any> {
   const { data } = await animeClient.get(path)
   return data
 }
 
-export async function fetchHome(_page = 1): Promise<Anime[]> {
+async function listOf(path: string): Promise<Anime[]> {
   try {
-    const d = (await getJSON(ENDPOINTS.HOME)).data || {}
-    return [
-      ...extractAnimes({ data: d.ongoing }),
-      ...extractAnimes({ data: d.completed }),
-    ]
+    return extractAnimes(await getJSON(path))
   } catch {
     return []
   }
 }
 
-// Anime ongoing (sedang tayang)
-export async function fetchLatest(page = 1): Promise<Anime[]> {
+export async function fetchHome(_page = 1): Promise<Anime[]> {
   try {
-    return extractAnimes(await getJSON(ENDPOINTS.ONGOING(page)))
+    const raw = await getJSON(ENDPOINTS.HOME)
+    const d = raw?.data ?? raw ?? {}
+    // Gabungkan semua section (featured, latest, popular, trending, ...)
+    const seen = new Set<string>()
+    const out: Anime[] = []
+    const push = (list: Anime[]) =>
+      list.forEach((a) => { if (!seen.has(a.slug)) { seen.add(a.slug); out.push(a) } })
+    if (Array.isArray(d)) push(extractAnimes(d))
+    else Object.values(d).forEach((v) => Array.isArray(v) && push(extractAnimes(v)))
+    return out
   } catch {
     return []
   }
+}
+
+// Anime terbaru / ongoing
+export async function fetchLatest(page = 1): Promise<Anime[]> {
+  return listOf(ENDPOINTS.ONGOING(page))
 }
 
 export async function fetchOngoing(page = 1): Promise<Anime[]> {
@@ -135,55 +145,44 @@ export async function fetchOngoing(page = 1): Promise<Anime[]> {
 }
 
 export async function fetchCompleted(page = 1): Promise<Anime[]> {
-  try {
-    return extractAnimes(await getJSON(ENDPOINTS.COMPLETE(page)))
-  } catch {
-    return []
-  }
+  return listOf(ENDPOINTS.COMPLETE(page))
 }
 
-// Tidak ada endpoint popular — pakai anime tamat, urut skor tertinggi
 export async function fetchPopular(page = 1): Promise<Anime[]> {
-  const list = await fetchCompleted(page)
-  return [...list].sort((a, b) => (parseFloat(b.score || '0') || 0) - (parseFloat(a.score || '0') || 0))
+  return listOf(ENDPOINTS.POPULAR(page))
 }
 
-// Tidak ada endpoint movie khusus — cari kata kunci "movie"
 export async function fetchMovies(page = 1): Promise<Anime[]> {
-  return page > 1 ? [] : searchAnime('movie')
+  return listOf(ENDPOINTS.MOVIE(page))
 }
 
-// Semua anime A-Z
+export async function fetchUpcoming(page = 1): Promise<Anime[]> {
+  return listOf(ENDPOINTS.UPCOMING(page))
+}
+
+// Semua anime (list mode)
 export async function fetchAllAnime(_page = 1): Promise<Anime[]> {
-  try {
-    return extractAnimes(await getJSON(ENDPOINTS.ALL_ANIME))
-  } catch {
-    return []
-  }
+  return listOf(ENDPOINTS.ALL_ANIME)
 }
 
-export async function fetchByType(_type: string, _page = 1): Promise<Anime[]> {
-  return []
+export async function fetchByType(type: string, page = 1): Promise<Anime[]> {
+  return listOf(ENDPOINTS.TYPE(type, page))
 }
 
-export async function searchAnime(keyword: string, _page = 1): Promise<Anime[]> {
+export async function searchAnime(keyword: string, page = 1): Promise<Anime[]> {
   if (!keyword.trim()) return []
-  try {
-    return extractAnimes(await getJSON(ENDPOINTS.SEARCH(keyword)))
-  } catch {
-    return []
-  }
+  return listOf(ENDPOINTS.SEARCH(keyword.trim(), page))
 }
 
 export async function fetchGenres(): Promise<{ name: string; slug: string }[]> {
   try {
     const data = await getJSON(ENDPOINTS.GENRES)
-    const list = data?.data?.genreList || data?.data?.genres || data?.genreList || data?.data || []
+    const list = data?.data?.genres || data?.data?.genreList || data?.genres || data?.genreList || data?.data || []
     if (!Array.isArray(list)) return []
     return list
       .map((g: any) => ({
-        name: g.title || g.name || g.genre || '',
-        slug: g.genreId || g.slug || cleanSlug(g.href || '') || String(g.title || '').toLowerCase().replace(/\s+/g, '-'),
+        name: g.title || g.name || g.genre || (typeof g === 'string' ? g : ''),
+        slug: g.slug || g.genreId || cleanSlug(g.href || '') || String(g.title || g.name || g || '').toLowerCase().replace(/\s+/g, '-'),
       }))
       .filter((g: any) => g.name)
   } catch {
@@ -191,36 +190,52 @@ export async function fetchGenres(): Promise<{ name: string; slug: string }[]> {
   }
 }
 
-
-// Musim tidak tersedia di API ini
 export async function fetchSeasons(): Promise<AnimeSeason[]> {
-  return []
-}
-
-export async function fetchBySeason(_season: string, _year: string | number): Promise<Anime[]> {
-  return []
-}
-
-export async function fetchByGenre(slug: string, page = 1): Promise<Anime[]> {
   try {
-    return extractAnimes(await getJSON(ENDPOINTS.GENRE(slug, page)))
+    const data = await getJSON(ENDPOINTS.SEASONS)
+    const d = data?.data ?? data
+    const flat: any[] = []
+    // Bisa berupa array flat atau dikelompokkan per tahun
+    const walk = (v: any) => {
+      if (Array.isArray(v)) v.forEach(walk)
+      else if (v && typeof v === 'object') {
+        if (v.slug && (v.name || v.title)) flat.push(v)
+        else Object.values(v).forEach(walk)
+      }
+    }
+    walk(d?.seasons ?? d)
+    return flat.map((s) => ({ name: s.name || s.title || '', slug: s.slug })).filter((s) => s.name)
   } catch {
     return []
   }
 }
 
-// Daftar A-Z: filter huruf di sisi klien dari /unlimited
-export async function fetchAnimeList(letter: string, _page = 1): Promise<Anime[]> {
-  const all = await fetchAllAnime()
-  const l = (letter || '').trim().toLowerCase()
-  if (!l || l === 'all') return all
-  return all.filter((a) => (a.title || '').trim().toLowerCase().startsWith(l === '#' ? '' : l))
+// season: slug penuh (mis. "fall-2025") atau season + year terpisah
+export async function fetchBySeason(season: string, year?: string | number, page = 1): Promise<Anime[]> {
+  const slug = year ? `${String(season).toLowerCase()}-${year}` : String(season)
+  return listOf(ENDPOINTS.SEASON(slug, page))
 }
 
-export async function fetchAdvancedSearch(params: Record<string, string>): Promise<Anime[]> {
-  const keyword = params.q || params.keyword || params.search || ''
-  if (keyword) return searchAnime(keyword)
-  return fetchAllAnime()
+export async function fetchByGenre(slug: string, page = 1): Promise<Anime[]> {
+  return listOf(ENDPOINTS.GENRE(slug, page))
+}
+
+export async function fetchByStudio(slug: string, page = 1): Promise<Anime[]> {
+  return listOf(ENDPOINTS.STUDIO(slug, page))
+}
+
+// Daftar A-Z: filter huruf dilakukan server-side lewat /az
+export async function fetchAnimeList(letter: string, page = 1): Promise<Anime[]> {
+  const l = (letter || '').trim()
+  if (!l || l.toLowerCase() === 'all') return fetchAllAnime()
+  return listOf(ENDPOINTS.AZ(l.toUpperCase(), page))
+}
+
+export async function fetchAdvancedSearch(params: Record<string, string>, query?: URLSearchParams): Promise<Anime[]> {
+  // `query` mendukung nilai ganda (genre[]=a&genre[]=b); jika tidak ada, pakai params biasa
+  const qs = query ? query.toString() : new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString()
+  if (!qs) return fetchAllAnime()
+  return listOf(`/filter?${qs}`)
 }
 
 export async function fetchCharacters(): Promise<AnimeCharacterType[]> {
@@ -242,9 +257,11 @@ export async function fetchSchedule(): Promise<Record<string, Anime[]>> {
       if (key) out[key] = extractAnimes({ data: { animeList: list } })
     }
     if (Array.isArray(d)) {
-      d.forEach((x: any) => add(x.day || x.hari, x.anime_list || x.animeList || x.anime || []))
+      d.forEach((x: any) => add(x.day || x.hari, x.anime_list || x.animeList || x.anime || x.items || []))
     } else if (Array.isArray(d?.days)) {
-      d.days.forEach((x: any) => add(x.day || x.hari, x.anime_list || x.animeList || x.anime || []))
+      d.days.forEach((x: any) => add(x.day || x.hari, x.anime_list || x.animeList || x.anime || x.items || []))
+    } else if (d?.schedule && typeof d.schedule === 'object') {
+      Object.entries(d.schedule).forEach(([k, v]) => Array.isArray(v) && add(k, v))
     } else if (d && typeof d === 'object') {
       Object.entries(d).forEach(([k, v]) => Array.isArray(v) && add(k, v))
     }
@@ -264,11 +281,11 @@ const toText = (v: any): string => {
 export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void): Promise<AnimeDetail | null> {
   try {
     const raw = await getJSON(ENDPOINTS.DETAIL(slug))
-    const d = raw.data?.detail || raw.data || raw.detail || raw
+    const d = raw.data?.detail || raw.data?.anime || raw.data || raw.detail || raw
 
     const episodes: Episode[] = (d.episodeList || d.episodes || []).map((ep: any) => ({
       title: ep.title || ep.name || (ep.eps != null ? `Episode ${ep.eps}` : ''),
-      slug: ep.episodeId || ep.slug || cleanSlug(ep.href || ep.url || ''),
+      slug: ep.slug || ep.episodeId || cleanSlug(ep.href || ep.url || ''),
       date: ep.date || ep.uploadDate || '',
     })).filter((e: Episode) => e.slug)
 
@@ -299,7 +316,7 @@ export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void
       },
       genres,
       episodes,
-      batchSlug: d.batch?.batchId || d.batch?.slug || cleanSlug(d.batch?.href || ''),
+      batchSlug: d.batch?.slug || d.batch?.batchId || cleanSlug(d.batch?.href || ''),
     }
 
     // Sinkronkan sinopsis dari MAL — di background (tidak memblokir halaman)
@@ -328,48 +345,45 @@ export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void
   }
 }
 
-// Detail episode + link nonton (server di-resolve lewat /server/:serverId)
+// Detail episode + link nonton (iframe default, mirrors, sources) + download
 export async function fetchEpisode(slug: string): Promise<StreamData | null> {
   try {
     const raw = await getJSON(ENDPOINTS.EPISODE(slug))
-    const d = raw.data || raw
+    const d = raw.data?.episode || raw.data || raw
 
     const streams: { server: string; url: string }[] = []
-    if (d.defaultStreamingUrl) streams.push({ server: 'Default', url: d.defaultStreamingUrl })
-
-    const serverRefs: { label: string; id: string }[] = []
-    const qualities = d.server?.qualities || []
-    qualities.forEach((q: any) =>
-      (q.serverList || []).forEach((s: any) => {
-        if (s.serverId) serverRefs.push({ label: `${s.title || 'Server'} ${q.title || ''}`.trim(), id: s.serverId })
+    const addStream = (server: string, url: any) => {
+      if (typeof url === 'string' && url && !streams.some((s) => s.url === url)) streams.push({ server, url })
+    }
+    const addList = (list: any, fallback = 'Server') => {
+      if (!Array.isArray(list)) return
+      list.forEach((s: any) => {
+        if (typeof s === 'string') return addStream(fallback, s)
+        addStream(s.name || s.server || s.title || s.label || fallback, s.url || s.embedUrl || s.embed || s.src || s.iframe)
       })
-    )
-    // Server lama (format flat)
-    ;(Array.isArray(d.streams) ? d.streams : []).forEach((s: any) => {
-      const url = s.url || s.embedUrl || s.src
-      if (url) streams.push({ server: s.name || s.server || s.title || 'Server', url })
-    })
+    }
 
-    const resolved = await Promise.allSettled(
-      serverRefs.slice(0, 10).map(async (r) => {
-        const res = await getJSON(ENDPOINTS.SERVER(r.id))
-        const url = res?.data?.url || res?.url || ''
-        return url ? { server: r.label, url } : null
-      })
-    )
-    resolved.forEach((r) => {
-      if (r.status === 'fulfilled' && r.value && !streams.some((s) => s.url === r.value!.url)) streams.push(r.value)
-    })
+    addStream('Default', d.defaultStreamingUrl || d.defaultUrl || d.iframe || d.streamUrl || d.default?.url || (typeof d.default === 'string' ? d.default : ''))
+    addList(d.streams)
+    addList(d.mirrors)
+    addList(d.sources)
+
+    // Mirror tambahan lewat /episode/:slug/mirrors
+    try {
+      const m = await getJSON(ENDPOINTS.MIRRORS(slug))
+      const md = m?.data ?? m
+      addList(Array.isArray(md) ? md : md?.mirrors || md?.servers || md?.list || [])
+    } catch {}
 
     const downloads: DownloadLink[] = []
-    const dl = d.downloadUrl || d.downloads || d.download
-    const groups = Array.isArray(dl) ? dl : (dl?.qualities || [])
+    const dl = d.downloads || d.downloadUrl || d.download
+    const groups = Array.isArray(dl) ? dl : (dl?.qualities || dl?.groups || [])
     groups.forEach((g: any) => {
-      const links = (g.urls || g.links || g.hosts || []).map((l: any) => ({
-        host: l.title || l.name || l.host || '',
-        url: l.url || '',
+      const links = (g.urls || g.links || g.hosts || g.mirrors || []).map((l: any) => ({
+        host: l.title || l.name || l.host || l.server || '',
+        url: l.url || l.link || '',
       })).filter((l: any) => l.url)
-      if (links.length) downloads.push({ resolution: g.title || g.resolution || g.quality || '', format: g.format || '', links })
+      if (links.length) downloads.push({ resolution: g.title || g.resolution || g.quality || g.name || '', format: g.format || '', links })
     })
 
     return { title: d.title || raw.title || '', streams, downloads }
@@ -378,22 +392,298 @@ export async function fetchEpisode(slug: string): Promise<StreamData | null> {
   }
 }
 
-// Download batch: /batch/:slug
+// Download batch: diambil dari detail anime (API animekompi tidak punya /batch/:slug;
+// /batch hanya daftar anime yang punya rilis batch)
 export async function fetchBatch(slug: string): Promise<DownloadLink[]> {
   try {
-    const d = (await getJSON(ENDPOINTS.BATCH(slug))).data || {}
-    const groups = d.downloadUrl?.formats || d.downloadUrl?.qualities || d.downloads || []
+    const raw = await getJSON(ENDPOINTS.DETAIL(slug))
+    const d = raw.data?.detail || raw.data?.anime || raw.data || raw
+    const groups = d.batch?.downloads || d.batch?.downloadUrl?.qualities || d.batchDownloads || d.downloads || []
     const out: DownloadLink[] = []
-    groups.forEach((f: any) => {
-      const fmt = f.title || f.format || ''
-      ;(f.qualities || [f]).forEach((q: any) => {
-        const links = (q.urls || q.links || []).map((l: any) => ({ host: l.title || '', url: l.url || '' })).filter((l: any) => l.url)
-        if (links.length) out.push({ resolution: q.title || '', format: fmt, links })
-      })
+    ;(Array.isArray(groups) ? groups : []).forEach((q: any) => {
+      const links = (q.urls || q.links || []).map((l: any) => ({ host: l.title || l.name || l.host || '', url: l.url || '' })).filter((l: any) => l.url)
+      if (links.length) out.push({ resolution: q.title || q.resolution || q.quality || '', format: q.format || '', links })
     })
     return out
   } catch {
     return []
+  }
+}
+
+// ─── ANIMEKOMPI: FITUR TAMBAHAN ──────────────────────────────
+
+export interface TaxonomyItem {
+  name: string
+  slug: string
+  count?: string
+  group?: string
+}
+
+export interface FilterList {
+  genres: TaxonomyItem[]
+  seasons: TaxonomyItem[]
+  studios: TaxonomyItem[]
+  statuses: TaxonomyItem[]
+  types: TaxonomyItem[]
+  orders: TaxonomyItem[]
+}
+
+export interface AnimeTooltip {
+  title: string
+  synopsis?: string
+  score?: string
+  status?: string
+  type?: string
+  genres?: string[]
+  episodes?: string
+}
+
+export interface EpisodeComment {
+  id: string
+  author: string
+  avatar?: string
+  content: string
+  date?: string
+  replies?: EpisodeComment[]
+}
+
+export interface DanmakuItem {
+  text: string
+  time?: number
+  color?: string
+}
+
+export interface PublicSettings {
+  siteName?: string
+  version?: string
+  status?: string
+  raw: any
+}
+
+// Kategori khusus: live-action, donghua, tokusatsu, upcoming, batch
+export type CategoryKey = 'live-action' | 'donghua' | 'tokusatsu' | 'upcoming' | 'batch' | 'movie'
+
+export async function fetchCategory(key: CategoryKey, page = 1): Promise<Anime[]> {
+  const map: Record<CategoryKey, (p: number) => string> = {
+    'live-action': ENDPOINTS.LIVE_ACTION,
+    donghua: ENDPOINTS.DONGHUA,
+    tokusatsu: ENDPOINTS.TOKUSATSU,
+    upcoming: ENDPOINTS.UPCOMING,
+    batch: ENDPOINTS.BATCH_LIST,
+    movie: ENDPOINTS.MOVIE,
+  }
+  return listOf(map[key](page))
+}
+
+export async function fetchByStatus(slug: string, page = 1): Promise<Anime[]> {
+  return listOf(ENDPOINTS.STATUS(slug, page))
+}
+
+export async function fetchByOrder(slug: string, page = 1): Promise<Anime[]> {
+  return listOf(ENDPOINTS.ORDER(slug, page))
+}
+
+function extractTaxonomy(raw: any, group?: string): TaxonomyItem[] {
+  const d = raw?.data ?? raw
+  const out: TaxonomyItem[] = []
+  const seen = new Set<string>()
+  const add = (v: any, grp?: string) => {
+    if (v == null) return
+    const isStr = typeof v === 'string'
+    const name = isStr ? v : v.title || v.name || v.label || v.genre || v.text || ''
+    const slug = isStr
+      ? v.toLowerCase().trim().replace(/\s+/g, '-')
+      : v.slug || v.id || v.value || v.genreId || cleanSlug(v.href || v.url || '') || String(name).toLowerCase().trim().replace(/\s+/g, '-')
+    if (!name || !slug || seen.has(`${grp}|${slug}`)) return
+    seen.add(`${grp}|${slug}`)
+    const count = v.count ?? v.total ?? v.jumlah
+    out.push({ name: String(name), slug: String(slug), count: count != null ? String(count) : undefined, group: grp || group })
+  }
+  const walk = (v: any, grp?: string) => {
+    if (Array.isArray(v)) {
+      v.forEach((x) => {
+        // Dikelompokkan per tahun/huruf: { year|group|title, items|seasons|studios|list: [...] }
+        const nested = x && typeof x === 'object' && (x.items || x.seasons || x.studios || x.list || x.genres)
+        if (nested && Array.isArray(nested)) walk(nested, String(x.year || x.group || x.letter || x.title || x.name || grp || ''))
+        else add(x, grp)
+      })
+    } else if (v && typeof v === 'object') {
+      Object.entries(v).forEach(([k, x]) => (Array.isArray(x) ? walk(x, k) : null))
+    }
+  }
+  walk(Array.isArray(d) ? d : d?.items || d?.list || d?.data || d?.genres || d?.seasons || d?.studios || d?.statuses || d?.status || d?.types || d?.orders || d)
+  return out
+}
+
+async function taxonomy(path: string): Promise<TaxonomyItem[]> {
+  try {
+    return extractTaxonomy(await getJSON(path))
+  } catch {
+    return []
+  }
+}
+
+export const fetchStudios = () => taxonomy(ENDPOINTS.STUDIOS)
+export const fetchStatuses = () => taxonomy(ENDPOINTS.STATUSES)
+export const fetchTypes = () => taxonomy(ENDPOINTS.TYPES)
+export const fetchOrders = () => taxonomy(ENDPOINTS.ORDERS)
+
+export async function fetchFilterList(): Promise<FilterList> {
+  const empty: FilterList = { genres: [], seasons: [], studios: [], statuses: [], types: [], orders: [] }
+  try {
+    const raw = await getJSON(ENDPOINTS.FILTER_LIST)
+    const d = raw?.data ?? raw ?? {}
+    const pick = (...keys: string[]) => {
+      for (const k of keys) if (d[k] != null) return extractTaxonomy(d[k])
+      return []
+    }
+    return {
+      genres: pick('genres', 'genre'),
+      seasons: pick('seasons', 'season'),
+      studios: pick('studios', 'studio'),
+      statuses: pick('statuses', 'status'),
+      types: pick('types', 'type'),
+      orders: pick('orders', 'order', 'sort'),
+    }
+  } catch {
+    return empty
+  }
+}
+
+// Metadata detail genre
+export async function fetchGenreDetail(slug: string): Promise<{ name: string; description: string } | null> {
+  try {
+    const raw = await getJSON(ENDPOINTS.GENRE_DETAIL(slug))
+    const d = raw?.data?.genre || raw?.data || raw
+    const name = d.title || d.name || d.genre || ''
+    const description = d.description || d.synopsis || d.desc || d.about || ''
+    return name || description ? { name: String(name), description: String(description) } : null
+  } catch {
+    return null
+  }
+}
+
+// Saran pencarian (autocomplete): anime & episode
+export async function fetchSearchSuggest(keyword: string): Promise<{ title: string; slug: string; image?: string; kind: 'anime' | 'episode' }[]> {
+  if (keyword.trim().length < 2) return []
+  try {
+    const raw = await getJSON(ENDPOINTS.SUGGEST(keyword.trim()))
+    const d = raw?.data ?? raw
+    const out: { title: string; slug: string; image?: string; kind: 'anime' | 'episode' }[] = []
+    const add = (list: any, kind: 'anime' | 'episode') => {
+      if (!Array.isArray(list)) return
+      list.forEach((i: any) => {
+        const title = typeof i === 'string' ? i : i.title || i.name || ''
+        const slug = typeof i === 'string' ? '' : i.slug || cleanSlug(i.href || i.url || '')
+        if (title && slug) out.push({ title, slug, image: i.poster || i.image || i.thumbnail || '', kind })
+      })
+    }
+    if (Array.isArray(d)) add(d, 'anime')
+    else {
+      add(d?.anime || d?.animes || d?.series, 'anime')
+      add(d?.episodes || d?.episode, 'episode')
+      add(d?.results || d?.suggestions || d?.items, 'anime')
+    }
+    return out.slice(0, 8)
+  } catch {
+    return []
+  }
+}
+
+export async function fetchTooltip(slug: string): Promise<AnimeTooltip | null> {
+  try {
+    const raw = await getJSON(ENDPOINTS.TOOLTIP(slug))
+    const d = raw?.data?.tooltip || raw?.data || raw
+    if (!d || !(d.title || d.name)) return null
+    return {
+      title: d.title || d.name,
+      synopsis: d.synopsis || d.description || '',
+      score: toText(d.score ?? d.rating),
+      status: toText(d.status),
+      type: toText(d.type),
+      episodes: toText(d.episodes ?? d.totalEpisodes),
+      genres: (Array.isArray(d.genres) ? d.genres : Array.isArray(d.genreList) ? d.genreList : [])
+        .map((g: any) => (typeof g === 'object' ? g.title || g.name || '' : String(g))).filter(Boolean),
+    }
+  } catch {
+    return null
+  }
+}
+
+function mapComment(c: any, i: number): EpisodeComment {
+  return {
+    id: String(c.id ?? c.commentId ?? i),
+    author: c.author || c.user || c.username || c.name || 'Anonim',
+    avatar: c.avatar || c.photo || c.image || '',
+    content: String(c.content || c.comment || c.text || c.message || ''),
+    date: c.date || c.createdAt || c.time || '',
+    replies: Array.isArray(c.replies || c.children) ? (c.replies || c.children).map(mapComment) : [],
+  }
+}
+
+export async function fetchEpisodeComments(slug: string): Promise<EpisodeComment[]> {
+  try {
+    const raw = await getJSON(ENDPOINTS.COMMENTS(slug))
+    const d = raw?.data ?? raw
+    const list = Array.isArray(d) ? d : d?.comments || d?.items || d?.list || d?.threads || []
+    return Array.isArray(list) ? list.map(mapComment).filter((c) => c.content) : []
+  } catch {
+    return []
+  }
+}
+
+export async function fetchEpisodeReactions(slug: string): Promise<{ label: string; count: number }[]> {
+  try {
+    const raw = await getJSON(ENDPOINTS.REACTIONS(slug))
+    const d = raw?.data?.reactions || raw?.data || raw
+    const list = Array.isArray(d) ? d : d?.reactions || d?.items || null
+    if (Array.isArray(list)) {
+      return list
+        .map((r: any) => ({ label: String(r.label || r.name || r.type || r.reaction || r.emoji || ''), count: Number(r.count ?? r.total ?? r.value ?? 0) || 0 }))
+        .filter((r) => r.label)
+    }
+    // Bentuk objek: { suka: 10, tawa: 3 }
+    if (d && typeof d === 'object') {
+      return Object.entries(d)
+        .filter(([, v]) => typeof v === 'number' || /^\d+$/.test(String(v)))
+        .map(([k, v]) => ({ label: k, count: Number(v) }))
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+export async function fetchEpisodeDanmaku(slug: string): Promise<DanmakuItem[]> {
+  try {
+    const raw = await getJSON(ENDPOINTS.DANMAKU(slug))
+    const d = raw?.data ?? raw
+    const list = Array.isArray(d) ? d : d?.danmaku || d?.comments || d?.items || d?.list || []
+    return Array.isArray(list)
+      ? list
+          .map((i: any) => (typeof i === 'string'
+            ? { text: i }
+            : { text: String(i.text || i.content || i.message || i.comment || ''), time: Number(i.time ?? i.t ?? i.timestamp) || undefined, color: i.color }))
+          .filter((i: DanmakuItem) => i.text)
+      : []
+  } catch {
+    return []
+  }
+}
+
+// Konfigurasi publik & status backend
+export async function fetchPublicSettings(): Promise<PublicSettings | null> {
+  try {
+    const raw = await getJSON(ENDPOINTS.SETTINGS)
+    const d = raw?.data ?? raw
+    return {
+      siteName: d?.siteName || d?.site_name || d?.name || '',
+      version: toText(d?.version || d?.backendVersion),
+      status: toText(d?.status || d?.backendStatus || d?.backend?.status),
+      raw: d,
+    }
+  } catch {
+    return null
   }
 }
 
@@ -926,8 +1216,8 @@ function extractAnimes(raw: any): Anime[] {
   const d = raw?.data ?? raw
   let arr: any =
     (Array.isArray(d) ? d : null) ||
-    d?.animeList || d?.anime_list || d?.animes || d?.results || d?.list || d?.data ||
-    raw?.animeList || raw?.animes || raw?.results || []
+    d?.animeList || d?.anime_list || d?.animes || d?.anime || d?.items || d?.results || d?.list || d?.data ||
+    raw?.animeList || raw?.animes || raw?.items || raw?.results || []
 
   if (!Array.isArray(arr)) return []
   // /unlimited: [{ startWith, animeList: [...] }] → ratakan
@@ -938,8 +1228,8 @@ function extractAnimes(raw: any): Anime[] {
   const toStr = (v: any) => (v == null ? '' : String(v))
   return arr.map((item: any) => ({
     title: item.title || item.judul || '',
-    slug: item.animeId || item.slug || cleanSlug(item.href || item.url || item.link || ''),
-    image: item.poster || item.thumbnail || item.image || item.cover || '',
+    slug: item.slug || item.animeId || cleanSlug(item.href || item.url || item.link || ''),
+    image: item.poster || item.thumbnail || item.image || item.cover || item.img || item.imageUrl || '',
     score: toStr(item.score || item.rating),
     episode: toStr(item.episodes ?? item.episode ?? item.latestEpisode),
     type: item.type || item.tipe || '',

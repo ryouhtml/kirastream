@@ -1,8 +1,9 @@
 // components/AnimeGrid.tsx
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import type { Anime } from '@/lib/api'
+import { fetchTooltip, type Anime, type AnimeTooltip } from '@/lib/api'
 import { staggerContainer, staggerItem } from './motionVariants'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
@@ -14,12 +15,36 @@ const imageProxy = (url: string) => `/api/mal-image?url=${encodeURIComponent(url
 
 const MotionLink = motion(Link)
 
+// Cache tooltip per slug agar tidak fetch berulang
+const tooltipCache = new Map<string, AnimeTooltip | null>()
+
+function useTooltip(slug: string) {
+  const [tip, setTip] = useState<AnimeTooltip | null>(null)
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout>>()
+  const show = (e: React.MouseEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    clearTimeout(timer.current)
+    // Delay singkat agar tidak fetch saat kursor sekadar lewat
+    timer.current = setTimeout(async () => {
+      if (!tooltipCache.has(slug)) tooltipCache.set(slug, await fetchTooltip(slug))
+      const data = tooltipCache.get(slug) || null
+      if (!data) return
+      setTip(data)
+      setPos({ x: Math.min(r.right + 8, window.innerWidth - 280), y: Math.max(8, Math.min(r.top, window.innerHeight - 200)) })
+    }, 400)
+  }
+  const hide = () => { clearTimeout(timer.current); setTip(null); setPos(null) }
+  return { tip, pos, show, hide }
+}
+
 const AnimeCard = ({ anime }: { anime: Anime }) => {
   const { language } = useSettings()
   const reduce = useAnimationsEnabled()
   const t = (key: string) => translate(language, key)
+  const { tip, pos, show, hide } = useTooltip(anime.slug)
   return (
-    <motion.div variants={staggerItem}>
+    <motion.div variants={staggerItem} onMouseEnter={show} onMouseLeave={hide}>
       <MotionLink
         href={`/anime/${anime.slug}`}
         className="anime-card group block"
@@ -46,6 +71,20 @@ const AnimeCard = ({ anime }: { anime: Anime }) => {
           </h3>
         </div>
       </MotionLink>
+      {tip && pos && (
+        <div
+          role="tooltip"
+          className="hidden md:block fixed z-50 w-64 card p-3 shadow-lg pointer-events-none"
+          style={{ left: pos.x, top: pos.y }}
+        >
+          <p className="font-semibold text-sm text-[var(--color-text)] line-clamp-2">{tip.title}</p>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">
+            {[tip.type, tip.status, tip.score && `★ ${tip.score}`, tip.episodes && `${tip.episodes} eps`].filter(Boolean).join(' · ')}
+          </p>
+          {tip.genres && tip.genres.length > 0 && <p className="text-xs text-ocean mt-1 line-clamp-1">{tip.genres.join(', ')}</p>}
+          {tip.synopsis && <p className="text-xs text-[var(--color-text-muted)] mt-2 line-clamp-5">{tip.synopsis}</p>}
+        </div>
+      )}
     </motion.div>
   )
 }

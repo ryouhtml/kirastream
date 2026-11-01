@@ -1,9 +1,9 @@
 // ─── KIRA API CONFIG ─────────────────────────────────────────
-// Sumber: sankavollerei.web.id/anime/kusonime
+// Sumber: sankavollerei.web.id/anime/animekompi
 
 export const CONFIG = {
-  // Anime API (Sankavollerei — Kusonime)
-  ANIME_API: 'https://www.sankavollerei.web.id/anime',
+  // Anime API (Sankavollerei — Animekompi)
+  ANIME_API: 'https://www.sankavollerei.web.id/anime/animekompi',
 
   // MAL API (MyAnimeList)
   MAL_API: 'https://api.myanimelist.net/v2',
@@ -24,20 +24,46 @@ export const CONFIG = {
   },
 } as const
 
-// API Endpoints — sankavollerei.web.id/anime
+// API Endpoints — sankavollerei.web.id/anime/animekompi
 export const ENDPOINTS = {
-  HOME:      '/home',
-  SCHEDULE:  '/schedule',
-  ONGOING:   (page = 1) => `/ongoing-anime?page=${page}`,
-  COMPLETE:  (page = 1) => `/complete-anime?page=${page}`,
-  ALL_ANIME: '/unlimited',
-  GENRES:    '/genre',
-  GENRE:     (slug: string, page = 1) => `/genre/${encodeURIComponent(slug)}?page=${page}`,
-  SEARCH:    (keyword: string) => `/search/${encodeURIComponent(keyword)}`,
-  DETAIL:    (slug: string) => `/anime/${encodeURIComponent(slug)}`,
-  EPISODE:   (slug: string) => `/episode/${encodeURIComponent(slug)}`,
-  SERVER:    (id: string) => `/server/${encodeURIComponent(id)}`,
-  BATCH:     (slug: string) => `/batch/${encodeURIComponent(slug)}`,
+  HOME:       '/home',
+  SCHEDULE:   '/schedule',
+  ONGOING:    (page = 1) => `/terbaru?page=${page}`,
+  COMPLETE:   (page = 1) => `/status/completed?page=${page}`,
+  POPULAR:    (page = 1) => `/order/popular?page=${page}`,
+  MOVIE:      (page = 1) => `/movie?page=${page}&order=update`,
+  UPCOMING:   (page = 1) => `/upcoming?page=${page}`,
+  BATCH_LIST: (page = 1) => `/batch?page=${page}&order=update`,
+  TYPE:       (slug: string, page = 1) => `/type/${encodeURIComponent(slug)}?page=${page}`,
+  ALL_ANIME:  '/list',
+  AZ:         (letter: string, page = 1, limit = 24) => `/az?letter=${encodeURIComponent(letter)}&page=${page}&limit=${limit}`,
+  GENRES:     '/genres',
+  GENRE:      (slug: string, page = 1) => `/genre/${encodeURIComponent(slug)}?page=${page}`,
+  SEASONS:    '/seasons',
+  SEASON:     (slug: string, page = 1) => `/season/${encodeURIComponent(slug)}?page=${page}`,
+  STUDIO:     (slug: string, page = 1) => `/studio/${encodeURIComponent(slug)}?page=${page}`,
+  SEARCH:     (keyword: string, page = 1) => `/search?q=${encodeURIComponent(keyword)}&page=${page}`,
+  SUGGEST:    (keyword: string) => `/search/suggest?q=${encodeURIComponent(keyword)}`,
+  FILTER:     (params: Record<string, string>) => `/filter?${new URLSearchParams(params)}`,
+  DETAIL:     (slug: string) => `/detail/${encodeURIComponent(slug)}`,
+  EPISODE:    (slug: string) => `/episode/${encodeURIComponent(slug)}`,
+  MIRRORS:    (slug: string) => `/episode/${encodeURIComponent(slug)}/mirrors`,
+  LIVE_ACTION:(page = 1) => `/live-action?page=${page}&order=update`,
+  DONGHUA:    (page = 1) => `/donghua?page=${page}&order=update`,
+  TOKUSATSU:  (page = 1) => `/tokusatsu?page=${page}&order=update`,
+  FILTER_LIST:'/filterlist',
+  STUDIOS:    '/studios',
+  STATUSES:   '/status',
+  TYPES:      '/types',
+  ORDERS:     '/orders',
+  STATUS:     (slug: string, page = 1) => `/status/${encodeURIComponent(slug)}?page=${page}`,
+  ORDER:      (slug: string, page = 1) => `/order/${encodeURIComponent(slug)}?page=${page}`,
+  GENRE_DETAIL:(slug: string) => `/genre-detail/${encodeURIComponent(slug)}`,
+  DANMAKU:    (slug: string) => `/episode/${encodeURIComponent(slug)}/danmaku`,
+  COMMENTS:   (slug: string) => `/episode/${encodeURIComponent(slug)}/comments`,
+  REACTIONS:  (slug: string) => `/episode/${encodeURIComponent(slug)}/reactions`,
+  SETTINGS:   '/settings',
+  TOOLTIP:    (slug: string) => `/tooltip/${encodeURIComponent(slug)}`,
 
   // ── Jikan (MAL Alternative — Free, No Auth) ────────────────
   JIKAN_SEASON: (year: number, season: string) => `/seasons/${year}/${season}`,

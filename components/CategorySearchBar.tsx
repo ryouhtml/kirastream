@@ -1,8 +1,10 @@
-import { useState, FormEvent } from 'react'
+import { useState, useEffect, useRef, FormEvent } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { Search } from 'lucide-react'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
+import { fetchSearchSuggest } from '@/lib/api'
 
 interface CategorySearchBarProps {
   type: 'anime' | 'manga' | 'webtoon' | 'novel'
@@ -16,6 +18,26 @@ export default function CategorySearchBar({ type, placeholder, className }: Cate
   const { language } = useSettings()
   const t = (key: string) => translate(language, key)
   const fallbackPlaceholder = t('searchbar.placeholder')
+  const [suggestions, setSuggestions] = useState<{ title: string; slug: string; image?: string; kind: 'anime' | 'episode' }[]>([])
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef<HTMLFormElement>(null)
+
+  // Autocomplete (anime & episode) — hanya untuk pencarian anime, dengan debounce
+  useEffect(() => {
+    if (type !== 'anime' || query.trim().length < 2) { setSuggestions([]); return }
+    let cancelled = false
+    const id = setTimeout(async () => {
+      const list = await fetchSearchSuggest(query)
+      if (!cancelled) { setSuggestions(list); setOpen(list.length > 0) }
+    }, 300)
+    return () => { cancelled = true; clearTimeout(id) }
+  }, [query, type])
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -25,7 +47,7 @@ export default function CategorySearchBar({ type, placeholder, className }: Cate
   }
 
   return (
-    <form onSubmit={handleSubmit} className={`relative w-full sm:w-72 shrink-0 ${className || ''}`}>
+    <form ref={boxRef} onSubmit={handleSubmit} className={`relative w-full sm:w-72 shrink-0 ${className || ''}`}>
       <input
         type="search"
         name="q"
@@ -43,6 +65,22 @@ export default function CategorySearchBar({ type, placeholder, className }: Cate
       >
         <Search size={14} className="text-white" aria-hidden="true" />
       </button>
+      {open && suggestions.length > 0 && (
+        <ul className="absolute left-0 right-0 top-full mt-1 z-50 card p-1 max-h-80 overflow-auto shadow-lg" role="listbox">
+          {suggestions.map((s) => (
+            <li key={`${s.kind}-${s.slug}`}>
+              <Link
+                href={s.kind === 'anime' ? `/anime/${s.slug}` : `/search?q=${encodeURIComponent(s.title)}&type=anime`}
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-[var(--color-text)] hover:bg-pearl/10"
+              >
+                <span className="line-clamp-1">{s.title}</span>
+                {s.kind === 'episode' && <span className="text-[10px] uppercase opacity-60 shrink-0">{t('ak.suggest.episode')}</span>}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </form>
   )
 }
