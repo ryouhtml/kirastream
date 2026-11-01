@@ -256,17 +256,17 @@ Terima kasih kepada semua yang membantu membangun proyek ini. Daftar lengkap ter
 
 ### AI Assistance
 
-Proyek ini dikembangkan dengan bantuan beberapa asisten AI:
+Proyek ini dikembangkan dengan bantuan beberapa asisten AI. Berikut tool yang dipakai beserta **pembuat asli** di baliknya:
 
-| Tool | Situs |
-| --- | --- |
-| OpenCode | <https://opencode.ai> |
-| Gemini | <https://gemini.google.com> |
-| Claude | <https://claude.ai> |
-| ChatGPT | <https://chatgpt.com> |
-| Grok | <https://grok.com> |
-| Perplexity | <https://www.perplexity.ai> |
-| DeepSeek | <https://www.deepseek.com> |
+| Tool | Pembuat Asli | Repositori / Situs Resmi |
+| --- | --- | --- |
+| OpenCode | [SST](https://github.com/sst) | [sst/opencode](https://github.com/sst/opencode) · <https://opencode.ai> |
+| Gemini | [Google DeepMind](https://github.com/google-deepmind) | <https://deepmind.google/models/gemini/> |
+| Claude | [Anthropic](https://github.com/anthropics) | <https://www.anthropic.com/claude> |
+| ChatGPT | [OpenAI](https://github.com/openai) | <https://openai.com/chatgpt/> |
+| Grok | [xAI](https://github.com/xai-org) | <https://x.ai> |
+| Perplexity | [Perplexity AI](https://github.com/perplexityai) | <https://www.perplexity.ai> |
+| DeepSeek | [DeepSeek](https://github.com/deepseek-ai) | <https://www.deepseek.com> |
 
 ## 🗺️ Roadmap
 
