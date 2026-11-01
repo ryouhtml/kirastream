@@ -345,6 +345,59 @@ export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void
   }
 }
 
+// Parser download toleran: cari array berisi {url|link|href} di mana pun, dan pakai
+// judul/key terdekat sebagai label resolusi/format (mis. { mkv: { "720p": [...] } }).
+function parseDownloads(node: any): DownloadLink[] {
+  const out: DownloadLink[] = []
+  const urlOf = (x: any) => (x && typeof x === 'object' ? x.url || x.link || x.href || x.download || '' : '')
+  const isLink = (x: any) => typeof urlOf(x) === 'string' && !!urlOf(x)
+  const labelOf = (x: any) => {
+    for (const k of ['title', 'name', 'quality', 'resolution', 'label', 'format']) {
+      if (typeof x?.[k] === 'string' && x[k]) return x[k]
+    }
+    return ''
+  }
+  const walk = (v: any, labels: string[], depth = 0) => {
+    if (v == null || depth > 6) return
+    if (Array.isArray(v)) {
+      const links = v.filter(isLink).map((l: any) => ({
+        host: String(l.host || l.name || l.title || l.provider || l.server || l.label || ''),
+        url: String(urlOf(l)),
+      }))
+      if (links.length) {
+        out.push({ resolution: labels[labels.length - 1] || '', format: labels.length > 1 ? labels[labels.length - 2] : '', links })
+      }
+      v.forEach((x) => { if (x && typeof x === 'object' && !isLink(x)) walk(x, labels, depth + 1) })
+    } else if (typeof v === 'object') {
+      const own = labelOf(v)
+      const next = own ? [...labels, own] : labels
+      Object.entries(v).forEach(([k, child]) => {
+        if (child && typeof child === 'object') {
+          const keyLabel = own || /^\d+$/.test(k) || /^(urls?|links?|hosts?|mirrors?|servers?|items?|list|downloads?|qualities|formats|groups?)$/i.test(k) ? [] : [k]
+          walk(child, [...next, ...keyLabel], depth + 1)
+        }
+      })
+    }
+  }
+  walk(node, [])
+  return out
+}
+
+// Ambil semua field berbau download dari payload episode/detail
+function collectDownloads(d: any): DownloadLink[] {
+  if (!d || typeof d !== 'object') return []
+  const keys = Object.keys(d).filter((k) => /download|unduh|^dl$/i.test(k))
+  const seen = new Set<string>()
+  return keys
+    .flatMap((k) => parseDownloads(d[k]))
+    .filter((g) => {
+      const sig = g.links.map((l) => l.url).join('|')
+      if (seen.has(sig)) return false
+      seen.add(sig)
+      return true
+    })
+}
+
 // Detail episode + link nonton (iframe default, mirrors, sources) + download
 export async function fetchEpisode(slug: string): Promise<StreamData | null> {
   try {
@@ -375,16 +428,7 @@ export async function fetchEpisode(slug: string): Promise<StreamData | null> {
       addList(Array.isArray(md) ? md : md?.mirrors || md?.servers || md?.list || [])
     } catch {}
 
-    const downloads: DownloadLink[] = []
-    const dl = d.downloads || d.downloadUrl || d.download
-    const groups = Array.isArray(dl) ? dl : (dl?.qualities || dl?.groups || [])
-    groups.forEach((g: any) => {
-      const links = (g.urls || g.links || g.hosts || g.mirrors || []).map((l: any) => ({
-        host: l.title || l.name || l.host || l.server || '',
-        url: l.url || l.link || '',
-      })).filter((l: any) => l.url)
-      if (links.length) downloads.push({ resolution: g.title || g.resolution || g.quality || g.name || '', format: g.format || '', links })
-    })
+    const downloads = collectDownloads(d).length ? collectDownloads(d) : collectDownloads(raw)
 
     return { title: d.title || raw.title || '', streams, downloads }
   } catch {
@@ -398,13 +442,8 @@ export async function fetchBatch(slug: string): Promise<DownloadLink[]> {
   try {
     const raw = await getJSON(ENDPOINTS.DETAIL(slug))
     const d = raw.data?.detail || raw.data?.anime || raw.data || raw
-    const groups = d.batch?.downloads || d.batch?.downloadUrl?.qualities || d.batchDownloads || d.downloads || []
-    const out: DownloadLink[] = []
-    ;(Array.isArray(groups) ? groups : []).forEach((q: any) => {
-      const links = (q.urls || q.links || []).map((l: any) => ({ host: l.title || l.name || l.host || '', url: l.url || '' })).filter((l: any) => l.url)
-      if (links.length) out.push({ resolution: q.title || q.resolution || q.quality || '', format: q.format || '', links })
-    })
-    return out
+    const fromBatch = d.batch && typeof d.batch === 'object' ? parseDownloads(d.batch) : []
+    return fromBatch.length ? fromBatch : collectDownloads(d)
   } catch {
     return []
   }

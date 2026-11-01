@@ -4,7 +4,7 @@ import Head from 'next/head'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Download, Heart, ListPlus, ChevronDown, Share2 } from 'lucide-react'
-import { fetchDetail, fetchEpisode, type AnimeDetail, type StreamData } from '@/lib/api'
+import { fetchDetail, fetchEpisode, fetchBatch, type AnimeDetail, type StreamData, type DownloadLink } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
@@ -31,6 +31,7 @@ export default function AnimeDetailPage() {
   const [playingEpisode, setPlayingEpisode] = useState<string | null>(null)
   const [isFavorited, setIsFavorited] = useState(false)
   const [selectedServer, setSelectedServer] = useState(0)
+  const [batch, setBatch] = useState<DownloadLink[]>([])
   const [shareOpen, setShareOpen] = useState(false)
   const [watchlistOpen, setWatchlistOpen] = useState(false)
   const watchlistRef = useRef<HTMLDivElement>(null)
@@ -82,6 +83,12 @@ export default function AnimeDetailPage() {
 
     loadDetail()
   }, [slug, user])
+
+  // Download batch (dari detail anime)
+  useEffect(() => {
+    setBatch([])
+    if (slug && typeof slug === 'string') fetchBatch(slug).then(setBatch)
+  }, [slug])
 
   // Play episode
   const handlePlayEpisode = async (episodeSlug: string) => {
@@ -209,17 +216,19 @@ export default function AnimeDetailPage() {
             )}
 
             {/* Download Links */}
-            {streamData.downloads && streamData.downloads.length > 0 && (
-              <details className="mt-4">
-                <summary className="cursor-pointer text-[var(--color-text)] font-medium hover:text-ocean transition-colors flex items-center gap-2">
-                  <Download size={16} /> {t('anime.downloads')}
-                </summary>
-                <div className="mt-3 space-y-2">
+            <div className="mt-4">
+              <h4 className="text-[var(--color-text)] font-medium flex items-center gap-2 mb-3">
+                <Download size={16} /> {t('anime.downloads')}
+              </h4>
+              {streamData.downloads && streamData.downloads.length > 0 ? (
+                <div className="space-y-2">
                   {streamData.downloads.map((dl, idx) => (
                     <div key={idx} className="bg-surface-dark rounded-lg p-3">
-                      <p className="text-sm font-medium text-[var(--color-text)] mb-2">
-                        {dl.resolution} - {dl.format}
-                      </p>
+                      {(dl.resolution || dl.format) && (
+                        <p className="text-sm font-medium text-[var(--color-text)] mb-2">
+                          {[dl.format, dl.resolution].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
                       <div className="flex flex-wrap gap-2">
                         {dl.links.map((link, lidx) => (
                           <a
@@ -229,15 +238,17 @@ export default function AnimeDetailPage() {
                             rel="noopener noreferrer"
                             className="px-3 py-1 bg-ocean/20 hover:bg-ocean/30 rounded text-xs text-[var(--color-text)] transition-colors"
                           >
-                            {link.host}
+                            {link.host || 'Download'}
                           </a>
                         ))}
                       </div>
                     </div>
                   ))}
                 </div>
-              </details>
-            )}
+              ) : (
+                <p className="text-sm text-[var(--color-text-muted)]">{t('ak.noDownload')}</p>
+              )}
+            </div>
 
             {playingEpisode && <EpisodeExtras episodeSlug={playingEpisode} />}
           </motion.div>
@@ -432,6 +443,30 @@ export default function AnimeDetailPage() {
                 >
                   {episode.title}
                 </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Download Batch */}
+        {batch.length > 0 && (
+          <div className="card p-6">
+            <h2 className="section-title flex items-center gap-2"><Download size={18} /> {t('ak.batchDownload')}</h2>
+            <div className="space-y-2">
+              {batch.map((dl, idx) => (
+                <div key={idx} className="bg-surface-dark rounded-lg p-3">
+                  {(dl.resolution || dl.format) && (
+                    <p className="text-sm font-medium text-[var(--color-text)] mb-2">{[dl.format, dl.resolution].filter(Boolean).join(' · ')}</p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {dl.links.map((link, lidx) => (
+                      <a key={lidx} href={link.url} target="_blank" rel="noopener noreferrer"
+                        className="px-3 py-1 bg-ocean/20 hover:bg-ocean/30 rounded text-xs text-[var(--color-text)] transition-colors">
+                        {link.host || 'Download'}
+                      </a>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>

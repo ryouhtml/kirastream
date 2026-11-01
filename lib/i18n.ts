@@ -52,6 +52,8 @@ export const RTL_CODES: LanguageCode[] = ['ar', 'ur', 'fa']
 type Dict = Record<string, string>
 
 const id: Dict = {
+  'ak.noDownload': 'Link download belum tersedia untuk episode ini.',
+  'ak.batchDownload': 'Download Batch',
   'ak.upcoming': 'Anime Akan Tayang',
   'ak.upcoming.sub': 'Anime yang akan segera tayang.',
   'ak.batch': 'Batch Anime',
@@ -535,6 +537,8 @@ const id: Dict = {
 }
 
 const en: Dict = {
+  'ak.noDownload': 'No download links available for this episode.',
+  'ak.batchDownload': 'Batch Download',
   'ak.upcoming': 'Upcoming Anime',
   'ak.upcoming.sub': 'Anime that will air soon.',
   'ak.batch': 'Batch Anime',
