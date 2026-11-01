@@ -254,20 +254,6 @@ Terima kasih kepada semua yang membantu membangun proyek ini. Daftar lengkap ter
 - **[ryouhtml](https://github.com/ryouhtml)** — author & maintainer repo ini
 - **[kanawangyy-yoikage](https://github.com/kanawangyy-yoikage)** — penulis proyek asli
 
-### AI Assistance
-
-Proyek ini dikembangkan dengan bantuan beberapa asisten AI. Berikut tool yang dipakai beserta **pembuat asli** di baliknya:
-
-| Tool | Pembuat Asli | Repositori / Situs Resmi |
-| --- | --- | --- |
-| OpenCode | [SST](https://github.com/sst) | [sst/opencode](https://github.com/sst/opencode) · <https://opencode.ai> |
-| Gemini | [Google DeepMind](https://github.com/google-deepmind) | <https://deepmind.google/models/gemini/> |
-| Claude | [Anthropic](https://github.com/anthropics) | <https://www.anthropic.com/claude> |
-| ChatGPT | [OpenAI](https://github.com/openai) | <https://openai.com/chatgpt/> |
-| Grok | [xAI](https://github.com/xai-org) | <https://x.ai> |
-| Perplexity | [Perplexity AI](https://github.com/perplexityai) | <https://www.perplexity.ai> |
-| DeepSeek | [DeepSeek](https://github.com/deepseek-ai) | <https://www.deepseek.com> |
-
 ## 🗺️ Roadmap
 
 - [ ] Dukungan multi-bahasa (i18n) yang lebih luas
