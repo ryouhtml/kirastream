@@ -108,3 +108,13 @@ export const ENDPOINTS = {
   NOVEL_GENRE:      (genreId: string) => `/novel/genre/${encodeURIComponent(genreId)}`,
   NOVEL_CHAPTERS:   (novelId: string) => `/novel/chapters/${encodeURIComponent(novelId)}`,
 } as const
+
+// Halaman nonton dipisah dari halaman detail. Secara default ada di domain yang sama
+// (/anime/episode/:slug). Isi NEXT_PUBLIC_WATCH_ORIGIN (mis. https://watch.kirastream.web.id)
+// untuk memakai domain terpisah — deploy proyek yang sama di domain itu.
+export const WATCH_ORIGIN = (process.env.NEXT_PUBLIC_WATCH_ORIGIN || '').replace(/\/$/, '')
+export const watchHref = (episodeSlug: string) => {
+  let v = String(episodeSlug)
+  try { v = decodeURIComponent(v) } catch {}
+  return `${WATCH_ORIGIN}/anime/episode/${encodeURIComponent(v)}`
+}

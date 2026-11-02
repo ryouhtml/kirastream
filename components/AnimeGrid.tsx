@@ -46,7 +46,7 @@ const AnimeCard = ({ anime }: { anime: Anime }) => {
   return (
     <motion.div variants={staggerItem} onMouseEnter={show} onMouseLeave={hide}>
       <MotionLink
-        href={`/anime/${anime.slug}`}
+        href={`/anime/detail/${anime.slug}`}
         className="anime-card group block"
         whileHover={reduce ? undefined : { y: -4 }}
         whileTap={reduce ? undefined : { scale: 0.98 }}

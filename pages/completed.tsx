@@ -46,7 +46,7 @@ export default function CompletedPage() {
               <LandscapeSpotlight
                 kind="anime"
                 title={animes[0].title}
-                href={`/anime/${animes[0].slug}`}
+                href={`/anime/detail/${animes[0].slug}`}
                 image={animes[0].image}
                 imageProxy={(url) => `/api/mal-image?url=${encodeURIComponent(url)}`}
                 score={animes[0].score}

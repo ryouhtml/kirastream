@@ -193,7 +193,7 @@ export default function Home() {
               <LandscapeSpotlight
                 kind="anime"
                 title={data.completed[0].title}
-                href={`/anime/${data.completed[0].slug}`}
+                href={`/anime/detail/${data.completed[0].slug}`}
                 image={data.completed[0].image}
                 imageProxy={(url) => `/api/mal-image?url=${encodeURIComponent(url)}`}
                 score={data.completed[0].score}
@@ -268,7 +268,7 @@ export default function Home() {
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     {animes.slice(0, 3).map((anime) => (
-                      <MotionLink key={anime.slug} href={`/anime/${anime.slug}`} className="group"
+                      <MotionLink key={anime.slug} href={`/anime/detail/${anime.slug}`} className="group"
                         whileHover={reduce ? undefined : { y: -4 }}
                         whileTap={reduce ? undefined : { scale: 0.98 }}
                         transition={{ duration: adaptiveDuration(motionTokens.duration.fast), ease: motionTokens.easing.smooth }}

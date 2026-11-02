@@ -65,8 +65,12 @@ export interface Episode {
 
 export interface StreamData {
   title: string
-  streams: { server: string; url: string }[]
+  // kind: 'embed' → iframe, 'direct' → file video langsung (<video>)
+  streams: { server: string; url: string; kind?: string }[]
   downloads: DownloadLink[]
+  animeSlug?: string
+  prevSlug?: string
+  nextSlug?: string
 }
 
 export interface DownloadLink {
@@ -278,7 +282,7 @@ const toText = (v: any): string => {
   return String(v)
 }
 
-export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void): Promise<AnimeDetail | null> {
+export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void, withMAL = true): Promise<AnimeDetail | null> {
   try {
     const raw = await getJSON(ENDPOINTS.DETAIL(slug))
     const d = raw.data?.detail || raw.data?.anime || raw.data || raw.detail || raw
@@ -320,6 +324,7 @@ export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void
     }
 
     // Sinkronkan sinopsis dari MAL — di background (tidak memblokir halaman)
+    if (!withMAL) return result
     const malId = d.mal_id || d.malId || d.malID
     ;(async () => {
       try {
@@ -370,7 +375,8 @@ function parseDownloads(node: any): DownloadLink[] {
       v.forEach((x) => { if (x && typeof x === 'object' && !isLink(x)) walk(x, labels, depth + 1) })
     } else if (typeof v === 'object') {
       const own = labelOf(v)
-      const next = own ? [...labels, own] : labels
+      const fmt = typeof v.format === 'string' && v.format && v.format !== own ? [v.format] : []
+      const next = own ? [...labels, ...fmt, own] : labels
       Object.entries(v).forEach(([k, child]) => {
         if (child && typeof child === 'object') {
           const keyLabel = own || /^\d+$/.test(k) || /^(urls?|links?|hosts?|mirrors?|servers?|items?|list|downloads?|qualities|formats|groups?)$/i.test(k) ? [] : [k]
@@ -383,54 +389,84 @@ function parseDownloads(node: any): DownloadLink[] {
   return out
 }
 
-// Ambil semua field berbau download dari payload episode/detail
-function collectDownloads(d: any): DownloadLink[] {
-  if (!d || typeof d !== 'object') return []
-  const keys = Object.keys(d).filter((k) => /download|unduh|^dl$/i.test(k))
+// Ambil semua field berbau download dari payload (rekursif: respons bisa bersarang
+// seperti { data: { episode: {...}, downloads: [...] } })
+function collectDownloads(d: any, depth = 0): DownloadLink[] {
+  if (!d || typeof d !== 'object' || depth > 3) return []
+  const found: DownloadLink[] = []
+  if (!Array.isArray(d)) {
+    for (const [k, v] of Object.entries(d)) {
+      if (/download|unduh|^dl$/i.test(k)) found.push(...parseDownloads(v))
+      else if (v && typeof v === 'object' && !Array.isArray(v)) found.push(...collectDownloads(v, depth + 1))
+    }
+  }
   const seen = new Set<string>()
-  return keys
-    .flatMap((k) => parseDownloads(d[k]))
-    .filter((g) => {
-      const sig = g.links.map((l) => l.url).join('|')
-      if (seen.has(sig)) return false
-      seen.add(sig)
-      return true
-    })
+  return found.filter((g) => {
+    const sig = g.links.map((l) => l.url).join('|')
+    if (seen.has(sig)) return false
+    seen.add(sig)
+    return true
+  })
 }
 
 // Detail episode + link nonton (iframe default, mirrors, sources) + download
 export async function fetchEpisode(slug: string): Promise<StreamData | null> {
   try {
     const raw = await getJSON(ENDPOINTS.EPISODE(slug))
-    const d = raw.data?.episode || raw.data || raw
+    // Bentuk: { data: { episode: {...meta}, sources: [...], downloads: [...], navigation } }
+    const root = raw?.data && typeof raw.data === 'object' ? raw.data : raw
+    const ep = root.episode && typeof root.episode === 'object' ? root.episode : root
+    const pick = (...keys: string[]) => {
+      for (const k of keys) {
+        if (root[k] != null) return root[k]
+        if (ep[k] != null) return ep[k]
+      }
+      return undefined
+    }
 
-    const streams: { server: string; url: string }[] = []
-    const addStream = (server: string, url: any) => {
-      if (typeof url === 'string' && url && !streams.some((s) => s.url === url)) streams.push({ server, url })
+    const streams: { server: string; url: string; kind?: string }[] = []
+    const addStream = (server: string, url: any, kind?: string) => {
+      if (typeof url === 'string' && url && !streams.some((s) => s.url === url)) streams.push({ server, url, kind })
     }
     const addList = (list: any, fallback = 'Server') => {
       if (!Array.isArray(list)) return
-      list.forEach((s: any) => {
-        if (typeof s === 'string') return addStream(fallback, s)
-        addStream(s.name || s.server || s.title || s.label || fallback, s.url || s.embedUrl || s.embed || s.src || s.iframe)
+      list.forEach((s: any, i: number) => {
+        if (typeof s === 'string') return addStream(`${fallback} ${i + 1}`, s)
+        addStream(
+          String(s.label || s.name || s.server || s.title || `${fallback} ${i + 1}`) + (s.quality ? ` ${s.quality}` : ''),
+          s.url || s.embedUrl || s.embed || s.src || s.iframe,
+          s.kind || s.type,
+        )
       })
     }
 
-    addStream('Default', d.defaultStreamingUrl || d.defaultUrl || d.iframe || d.streamUrl || d.default?.url || (typeof d.default === 'string' ? d.default : ''))
-    addList(d.streams)
-    addList(d.mirrors)
-    addList(d.sources)
+    const def = pick('defaultStreamingUrl', 'defaultUrl', 'iframe', 'streamUrl', 'default')
+    addStream('Default', typeof def === 'string' ? def : def?.url, 'embed')
+    addList(pick('streams'))
+    addList(pick('sources'))
+    addList(pick('mirrors'))
 
     // Mirror tambahan lewat /episode/:slug/mirrors
     try {
       const m = await getJSON(ENDPOINTS.MIRRORS(slug))
       const md = m?.data ?? m
-      addList(Array.isArray(md) ? md : md?.mirrors || md?.servers || md?.list || [])
+      addList(Array.isArray(md) ? md : md?.mirrors || md?.servers || md?.sources || md?.list || [])
     } catch {}
 
-    const downloads = collectDownloads(d).length ? collectDownloads(d) : collectDownloads(raw)
+    const downloads = collectDownloads(root).length ? collectDownloads(root) : collectDownloads(raw)
 
-    return { title: d.title || raw.title || '', streams, downloads }
+    const nav = pick('navigation', 'nav') || {}
+    const slugOf = (v: any) => (typeof v === 'string' ? v : v?.slug || cleanSlug(v?.href || v?.url || ''))
+    const animeRef = pick('anime', 'series')
+
+    return {
+      title: ep.title || root.title || raw.title || '',
+      streams,
+      downloads,
+      animeSlug: (typeof animeRef === 'object' ? animeRef?.slug : '') || ep.animeSlug || ep.anime_slug || undefined,
+      prevSlug: slugOf(nav.prev || nav.previous || nav.prevEpisode) || undefined,
+      nextSlug: slugOf(nav.next || nav.nextEpisode) || undefined,
+    }
   } catch {
     return null
   }
@@ -1285,7 +1321,7 @@ function extractAnimes(raw: any): Anime[] {
 // kalau tidak, buang akhiran "-episode-N..." dari slug episode.
 const EPISODE_SUFFIX = /-(?:episode|eps?)-\d+(?:[-\w]*)?$/i
 
-function animeSlugOf(item: any): string {
+export function animeSlugOf(item: any): string {
   const explicit =
     item.animeSlug || item.anime_slug || item.seriesSlug || item.series_slug ||
     item.anime?.slug || item.series?.slug || ''

@@ -15,6 +15,13 @@ const nextConfig = {
     NEXT_PUBLIC_MAL_API: 'https://api.myanimelist.net/v2',
     NEXT_PUBLIC_JIKAN_API: 'https://api.jikan.moe/v4',
   },
+  // Rute lama → rute baru (link lama di favorit/riwayat/pesan tetap jalan)
+  async redirects() {
+    return [
+      { source: '/anime/:slug((?!detail$|episode$)[^/]+)', destination: '/anime/detail/:slug', permanent: true },
+      { source: '/watch/:slug', destination: '/anime/episode/:slug', permanent: true },
+    ]
+  },
   async headers() {
     return [
       {

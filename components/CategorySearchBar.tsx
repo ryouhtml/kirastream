@@ -70,7 +70,7 @@ export default function CategorySearchBar({ type, placeholder, className }: Cate
           {suggestions.map((s) => (
             <li key={`${s.kind}-${s.slug}`}>
               <Link
-                href={s.kind === 'anime' ? `/anime/${s.slug}` : `/search?q=${encodeURIComponent(s.title)}&type=anime`}
+                href={s.kind === 'anime' ? `/anime/detail/${s.slug}` : `/search?q=${encodeURIComponent(s.title)}&type=anime`}
                 onClick={() => setOpen(false)}
                 className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-[var(--color-text)] hover:bg-pearl/10"
               >
