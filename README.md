@@ -2,14 +2,15 @@
 
 ![KiraStream](public/logo-title.png)
 
-Platform streaming anime bersubtitle Indonesia sekaligus tempat baca manga, novel, dan webtoon. Dibangun dengan Next.js 14, TypeScript, dan Firebase — lengkap dengan fitur sosial dan dukungan PWA.
+Platform streaming anime bersubtitle Indonesia sekaligus tempat baca manga, novel, dan webtoon. Dibangun dengan Next.js 15, TypeScript, dan Firebase — lengkap dengan fitur sosial dan dukungan PWA.
 
-[![Stars](https://img.shields.io/github/stars/kanawangyy-yoikage/kiranime?style=flat-square)](https://github.com/kanawangyy-yoikage/kiranime/stargazers)
-[![Forks](https://img.shields.io/github/forks/kanawangyy-yoikage/kiranime?style=flat-square)](https://github.com/kanawangyy-yoikage/kiranime/network/members)
-[![Issues](https://img.shields.io/github/issues/kanawangyy-yoikage/kiranime?style=flat-square)](https://github.com/kanawangyy-yoikage/kiranime/issues)
+[![Stars](https://img.shields.io/github/stars/kanawangyy/kiranime?style=flat-square)](https://github.com/kanawangyy/kiranime/stargazers)
+[![Forks](https://img.shields.io/github/forks/kanawangyy/kiranime?style=flat-square)](https://github.com/kanawangyy/kiranime/network/members)
+[![Issues](https://img.shields.io/github/issues/kanawangyy/kiranime?style=flat-square)](https://github.com/kanawangyy/kiranime/issues)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](./LICENSE)
-![Next.js 14](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)
+![Next.js 15](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript)
+![Vibe Coded](https://img.shields.io/badge/vibe-coded-%23ff69b4?style=flat-square)
 
 ---
 
@@ -28,7 +29,7 @@ Platform streaming anime bersubtitle Indonesia sekaligus tempat baca manga, nove
 - [Setup Firebase](#-setup-firebase)
 - [Sumber Data & API](#-sumber-data--api)
 - [PWA & Service Worker](#-pwa--service-worker)
-- [Deploy](#-deploy)
+- [Deploy](#️-deploy)
 - [Kontribusi](#-kontribusi)
 - [Contributors](#-contributors)
 - [Roadmap](#️-roadmap)
@@ -36,11 +37,17 @@ Platform streaming anime bersubtitle Indonesia sekaligus tempat baca manga, nove
 - [Lisensi](#-lisensi)
 - [Disclaimer](#️-disclaimer)
 
+---
+
 ## 📌 Tentang Proyek
 
 **KiraStream** adalah aplikasi web modern untuk menonton anime bersubtitle Indonesia sekaligus membaca manga, komik, novel, dan webtoon dalam satu platform. Dibangun di atas Next.js Pages Router dengan TypeScript penuh, proyek ini mengutamakan performa, pengalaman pengguna yang halus (smooth scroll & micro-animation), serta dukungan instalasi sebagai Progressive Web App (PWA) agar terasa seperti aplikasi native di perangkat mobile maupun desktop.
 
 Selain sebagai platform hiburan, KiraStream juga punya sisi sosial: pengguna bisa berteman, membuat/bergabung ke grup, dan mengobrol secara realtime — semuanya didukung oleh Firebase Authentication dan Firestore.
+
+> 🎧 **Proyek ini dibuat dengan metode *vibe coding*** — dibangun mengikuti flow, intuisi, dan semangat, bukan sekadar spesifikasi kaku. Kalau ada yang aneh, itu fitur. Kalau mulus, itu keajaiban. ✨
+
+---
 
 ## ✨ Fitur
 
@@ -73,7 +80,7 @@ Selain sebagai platform hiburan, KiraStream juga punya sisi sosial: pengguna bis
 ### ⭐ Personalisasi
 - Simpan **favorit** anime/manga/novel/webtoon
 - **Riwayat tontonan/bacaan** untuk lanjut dari posisi terakhir
-- Pengaturan preferensi pengguna (`SettingsContext`)
+- Pengaturan preferensi pengguna: accent color (6 pilihan), toggle animasi, pilihan bahasa UI (30 bahasa), jarak scroll reader
 
 ### 📱 PWA & Pengalaman Aplikasi
 - Dapat **diinstal** ke home screen (Android, iOS, desktop) lewat prompt instalasi kustom
@@ -82,48 +89,60 @@ Selain sebagai platform hiburan, KiraStream juga punya sisi sosial: pengguna bis
 - Service worker (`sw.js`) untuk caching aset
 
 ### 🎨 UI/UX
-- Animasi halus dengan **Framer Motion** (`Reveal`, `motionVariants`)
+- Animasi halus dengan **Framer Motion** (`Reveal`, `motionVariants`, respects `prefers-reduced-motion`)
 - **Smooth scroll** menggunakan **Lenis**
-- Komponen navigasi responsif: `TopNavbar`, `MobileNav`, `AnimeMenuAside`
+- Komponen navigasi responsif: `TopNavbar`, `MobileNav`, sidebar menu per konten
 - Spotlight/slider untuk konten unggulan di beranda
 - Fitur **share** konten (`ShareModal`)
 - Desain sepenuhnya responsif dengan **Tailwind CSS**
+- Dark mode default, theme accent color yang bisa dikustomisasi
+
+---
 
 ## 🛠️ Tech Stack
 
 | Kategori | Teknologi |
 |---|---|
-| Framework | [Next.js 14](https://nextjs.org/) (Pages Router) |
-| Bahasa | TypeScript |
-| Styling | Tailwind CSS |
-| Animasi | Framer Motion, Lenis |
-| State | Zustand, React Context |
-| Auth & Database | Firebase (Auth + Firestore) |
-| Video | HLS.js |
-| Scraping/HTTP | Axios, Cheerio |
+| Framework | [Next.js 15](https://nextjs.org/) (Pages Router) |
+| Bahasa | TypeScript 5 |
+| Styling | Tailwind CSS v3 |
+| Animasi | Framer Motion v11, Lenis v1 |
+| State | Zustand v4, React Context |
+| Auth & Database | Firebase v11 (Auth + Firestore) |
+| Video | HLS.js v1 |
+| Scraping/HTTP | Axios v1, Cheerio v1 |
 | Icon | Lucide React |
+| Font | Plus Jakarta Sans, Noto Sans JP |
 | PWA | Web App Manifest + custom Service Worker |
+
+---
 
 ## 📁 Struktur Proyek
 
 ```
-kiranime-main/
+kirastream-main/
 ├── components/       # Komponen UI (grid, navbar, chat room, reader, dll.)
 ├── contexts/         # React Context (Auth, Loading, Settings)
-├── lib/              # Konfigurasi API, Firebase, helper i18n, dll.
-├── pages/             # Routing Next.js (Pages Router)
-│   ├── api/          # API routes (proxy, image-proxy, novel, webtoon)
-│   ├── anime/         # Halaman detail anime
-│   ├── manga/         # Halaman manga
-│   ├── novel/         # Halaman novel
-│   ├── webtoon/       # Halaman webtoon
-│   ├── groups/        # Halaman grup
-│   └── messages/      # Halaman pesan/chat
-├── public/            # Aset statis, ikon PWA, manifest, service worker
-├── styles/            # Global CSS
-├── firestore.rules    # Aturan keamanan Firestore
-└── next.config.js
+├── lib/              # Konfigurasi API, Firebase, helper i18n, motion tokens, hooks
+├── pages/            # Routing Next.js (Pages Router)
+│   ├── api/          # API routes server-side (proxy gambar, scraper novel & webtoon)
+│   ├── anime/        # Detail & episode player anime
+│   ├── manga/        # List, detail & reader manga
+│   ├── novel/        # List, detail & reader novel
+│   ├── webtoon/      # List, detail & reader webtoon
+│   ├── groups/       # Halaman grup komunitas
+│   └── messages/     # Halaman chat & pesan
+├── public/           # Aset statis, ikon PWA, manifest.json, sw.js
+├── styles/           # Global CSS & design tokens
+├── firestore.rules   # Aturan keamanan Firestore
+├── next.config.js    # Konfigurasi Next.js
+├── tailwind.config.ts
+└── AGENT.md          # Panduan lengkap untuk AI agent
 ```
+
+> 📄 Lihat [`AGENT.md`](./AGENT.md) untuk dokumentasi teknis lengkap semua file, fungsi, konvensi, dan tips untuk AI yang bekerja di proyek ini.
+
+---
 
 ## 🚀 Memulai
 
@@ -135,7 +154,7 @@ kiranime-main/
 ### Instalasi
 
 ```bash
-git clone https://github.com/kanawangyy-yoikage/kiranime.git
+git clone https://github.com/kanawangyy/kiranime.git
 cd kiranime
 npm install
 ```
@@ -155,7 +174,7 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 NEXT_PUBLIC_MAL_CLIENT_ID=
 ```
 
-Endpoint API pihak ketiga (anime, MAL, Jikan) sudah dikonfigurasi secara default di `next.config.js` dan `lib/config.ts`.
+Endpoint API pihak ketiga (anime, MAL, Jikan) sudah dikonfigurasi secara default di `lib/config.ts`.
 
 ### Menjalankan Secara Lokal
 
@@ -178,6 +197,8 @@ npm run start
 npm run lint
 ```
 
+---
+
 ## 🔥 Setup Firebase
 
 Fitur autentikasi, profil pengguna, favorit, pertemanan, grup, dan chat bergantung pada Firebase. Langkah setup:
@@ -186,7 +207,7 @@ Fitur autentikasi, profil pengguna, favorit, pertemanan, grup, dan chat bergantu
 2. Aktifkan **Authentication** → metode **Google**, **Email/Password**, dan (opsional) **Phone**.
 3. Aktifkan **Firestore Database** (mode production atau test, sesuai kebutuhan).
 4. Salin konfigurasi Web App Firebase ke `.env.local` (lihat bagian [Konfigurasi Environment](#konfigurasi-environment)).
-5. Deploy aturan keamanan Firestore yang sudah disediakan di `firestore.rules`:
+5. Deploy aturan keamanan Firestore:
 
    ```bash
    npm install -g firebase-tools   # jika belum ada
@@ -195,43 +216,50 @@ Fitur autentikasi, profil pengguna, favorit, pertemanan, grup, dan chat bergantu
    firebase deploy --only firestore:rules
    ```
 
-Struktur data utama di Firestore mengikuti pola:
+Struktur data utama di Firestore:
 - `users/{uid}` — profil pengguna, dengan subkoleksi `history`, `favorites`, `watchlist`, `continue`, `groups`, `stickers`
-- Koleksi tambahan untuk **friendships**, **groups**, dan **messages/chat** (lihat `firestore.rules` untuk detail aturan aksesnya)
+- Koleksi tambahan untuk **friendships**, **groups**, dan **messages/chat** (lihat `firestore.rules` untuk detail)
+
+---
 
 ## 📦 Sumber Data & API
 
-Konten anime, manga/komik, dan novel diambil dari API pihak ketiga yang didefinisikan di `lib/config.ts`:
+Konten anime, manga/komik, dan novel diambil dari API pihak ketiga yang dikonfigurasi di `lib/config.ts`:
 
 | Sumber | Kegunaan |
 |---|---|
-| Sankavollerei (Animasu API) | Data anime, episode, jadwal, genre, karakter, serta manga/komik |
-| Jikan API (MyAnimeList) | Data tambahan MAL — musim, top anime, pencarian |
+| Sankavollerei (Animekompi API) | Data anime, episode, jadwal, genre, batch, A-Z list |
+| Jikan API (MyAnimeList) | Data seasonal, top anime, pencarian lanjutan |
 | MyAnimeList API | Integrasi opsional (butuh `NEXT_PUBLIC_MAL_CLIENT_ID`) |
-| Sankavollerei Novel API | Katalog, pencarian, genre, dan chapter novel |
+| webtoons.com | Scraping trending, search, detail, pages webtoon |
+| sakuranovel.id | Scraping list, search, genre, chapter novel |
 
-Route API internal di `pages/api/` (`proxy.ts`, `image-proxy.ts`, `mal-image.ts`, `novel.ts`, `webtoon.ts`) berfungsi sebagai **proxy** ke sumber-sumber di atas — tujuannya menghindari masalah CORS dan menyembunyikan endpoint asli dari client.
+Route API internal di `pages/api/` berfungsi sebagai **proxy** ke sumber-sumber di atas — menghindari CORS dan menyembunyikan endpoint asli dari client.
 
-> ⚠️ Data dan konten (anime/manga/novel/webtoon) diambil dari layanan pihak ketiga di luar kendali proyek ini. Ketersediaan dan keakuratan endpoint dapat berubah sewaktu-waktu.
+> ⚠️ Data dan konten diambil dari layanan pihak ketiga di luar kendali proyek ini. Ketersediaan endpoint dapat berubah sewaktu-waktu.
+
+---
 
 ## 📱 PWA & Service Worker
 
-- `public/manifest.json` mendefinisikan metadata aplikasi, ikon, dan **app shortcuts** (Anime Terbaru, Manga, Webtoon, Jadwal Rilis).
-- `public/sw.js` menangani caching aset untuk mendukung penggunaan offline.
-- `pages/offline.tsx` ditampilkan saat pengguna kehilangan koneksi.
-- `components/InstallPwaPrompt.tsx` menampilkan prompt instalasi kustom di browser yang mendukung.
+- `public/manifest.json` mendefinisikan metadata aplikasi, ikon, dan **app shortcuts**
+- `public/sw.js` menangani caching aset untuk mendukung penggunaan offline
+- `pages/offline.tsx` ditampilkan saat pengguna kehilangan koneksi
+- `components/InstallPwaPrompt.tsx` menampilkan prompt instalasi kustom
 
-Header cache khusus untuk `sw.js` dan `manifest.json` sudah dikonfigurasi di `next.config.js`.
+---
 
 ## ☁️ Deploy
 
-Proyek ini adalah aplikasi Next.js standar sehingga dapat di-deploy ke platform mana pun yang mendukung Next.js, misalnya:
+Proyek ini adalah aplikasi Next.js standar dan dapat di-deploy ke:
 
-- **[Vercel](https://vercel.com/)** (direkomendasikan, plug-and-play untuk Next.js)
+- **[Vercel](https://vercel.com/)** *(direkomendasikan — plug-and-play untuk Next.js)*
 - **Netlify** (dengan Next.js Runtime)
 - Server Node.js sendiri (`npm run build && npm run start`)
 
-Pastikan seluruh environment variable pada bagian [Konfigurasi Environment](#konfigurasi-environment) sudah diatur di dashboard platform deploy kamu.
+Pastikan seluruh environment variable sudah diatur di dashboard platform deploy kamu.
+
+---
 
 ## 🤝 Kontribusi
 
@@ -245,22 +273,27 @@ Kontribusi sangat terbuka! Untuk berkontribusi:
 
 Mohon pastikan kode sudah lolos `npm run lint` sebelum membuka PR.
 
+---
+
 ## 👥 Contributors
 
-Terima kasih kepada semua yang membantu membangun proyek ini. Daftar lengkap tersedia di [CONTRIBUTORS.md](./CONTRIBUTORS.md).
+Terima kasih kepada semua yang membantu membangun proyek ini.
 
 ### Author & Maintainer
 
-- **[ryouhtml](https://github.com/ryouhtml)** — author & maintainer repo ini
-- **[kanawangyy-yoikage](https://github.com/kanawangyy-yoikage)** — penulis proyek asli
+- **[kanawangyy](https://github.com/kanawangyy)** (yoikage / Bagus) — penulis & maintainer proyek ini
+
+---
 
 ## 🗺️ Roadmap
 
-- [ ] Dukungan multi-bahasa (i18n) yang lebih luas
 - [ ] Peningkatan pengalaman offline (caching konten, bukan hanya shell aplikasi)
 - [ ] Notifikasi push untuk episode/chapter baru
-- [ ] Dark mode / theme kustom lewat `SettingsContext`
 - [ ] Optimasi SEO & Open Graph per halaman detail
+- [ ] Player kustom dengan subtitle renderer
+- [ ] Mode baca manga horizontal (manga Jepang)
+
+---
 
 ## ❓ FAQ
 
@@ -268,14 +301,21 @@ Terima kasih kepada semua yang membantu membangun proyek ini. Daftar lengkap ter
 Tidak. KiraStream mengambil dan menampilkan data dari API pihak ketiga; tidak ada file media yang di-hosting oleh proyek ini.
 
 **Kenapa Firebase wajib dikonfigurasi?**
-Tanpa Firebase, fitur autentikasi, favorit, riwayat, pertemanan, grup, dan chat tidak akan berfungsi. Fitur penjelajahan konten (anime/manga/novel/webtoon) tetap bisa berjalan tanpa Firebase, tetapi disarankan tetap mengisi environment variable-nya.
+Tanpa Firebase, fitur autentikasi, favorit, riwayat, pertemanan, grup, dan chat tidak akan berfungsi. Fitur penjelajahan konten tetap bisa berjalan, tetapi disarankan tetap mengisi environment variable-nya.
 
-**Bisakah dijalankan tanpa Firebase untuk eksperimen cepat?**
-Sebagian besar halaman konten dapat dijalankan, namun halaman yang bergantung pada autentikasi (`login`, `profile`, `friends`, `groups`, `messages`) memerlukan konfigurasi Firebase yang valid.
+**Bisakah dijalankan tanpa Firebase?**
+Sebagian besar halaman konten bisa berjalan, namun halaman yang bergantung pada autentikasi (`login`, `profile`, `friends`, `groups`, `messages`) memerlukan konfigurasi Firebase yang valid.
+
+**Apa itu *vibe coding*?**
+Pendekatan coding yang mengutamakan flow kreatif dan intuisi daripada perencanaan rigid. Proyek ini dibuat sambil dengerin musik, ngikutin mood, dan iterasi cepat — kalau kerasa bener, ya lanjut. ✌️
+
+---
 
 ## 📄 Lisensi
 
 Proyek ini dilisensikan di bawah **[MIT License](./LICENSE)** — bebas digunakan, dimodifikasi, dan didistribusikan, dengan tetap menyertakan atribusi hak cipta asli.
+
+---
 
 ## ⚠️ Disclaimer
 
@@ -283,4 +323,10 @@ KiraStream dibuat untuk tujuan pembelajaran dan pengembangan. Seluruh konten ani
 
 ---
 
-Dibuat dengan 💜 oleh [kanawangyy-yoikage](https://github.com/kanawangyy-yoikage)
+<div align="center">
+
+Dibuat dengan 💜 + 🎧 oleh [ryou](https://github.com/kanawangyy)
+
+*vibe coded, not engineered.*
+
+</div>
