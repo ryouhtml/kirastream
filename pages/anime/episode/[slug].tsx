@@ -23,6 +23,7 @@ export default function WatchPage() {
   const [anime, setAnime] = useState<AnimeDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [server, setServer] = useState(0)
+  const [failed, setFailed] = useState<number[]>([])
 
   const animeSlug = data?.animeSlug || (slug ? animeSlugOf({ slug }) : '')
 
@@ -31,6 +32,7 @@ export default function WatchPage() {
     let cancelled = false
     setLoading(true)
     setServer(0)
+    setFailed([])
     fetchEpisode(slug).then((d) => {
       if (cancelled) return
       setData(d)
@@ -90,6 +92,19 @@ export default function WatchPage() {
   }
 
   const current = data.streams[server] || data.streams[0]
+  // File video langsung (bukan halaman embed) → <video>, bukan iframe
+  const isVideo =
+    current.kind === 'direct' ||
+    /\.(mp4|m3u8|webm|mkv)(\?|$)/i.test(current.url) ||
+    /pixeldrain\.com\/api\/file\//i.test(current.url)
+
+  // Jika <video> gagal dimuat, tandai server ini lalu pindah ke server berikutnya
+  const handleVideoError = () => {
+    const bad = [...failed, server]
+    setFailed(bad)
+    const nextIdx = data.streams.findIndex((_, i) => i !== server && !bad.includes(i))
+    if (nextIdx >= 0) setServer(nextIdx)
+  }
 
   return (
     <>
@@ -102,10 +117,17 @@ export default function WatchPage() {
           <h1 className="font-bold text-[var(--color-text)] mb-4 text-lg">{data.title}</h1>
 
           <div className="video-container mb-4">
-            {current.kind === 'direct' ? (
-              <video key={current.url} src={current.url} controls playsInline className="absolute inset-0 w-full h-full bg-black" />
+            {isVideo ? (
+              <video key={current.url} src={current.url} controls playsInline onError={handleVideoError} className="absolute inset-0 w-full h-full bg-black" />
             ) : (
-              <iframe key={current.url} src={current.url} className="absolute inset-0 w-full h-full" allowFullScreen frameBorder="0" />
+              <iframe
+                key={current.url}
+                src={current.url}
+                className="absolute inset-0 w-full h-full"
+                allowFullScreen
+                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                frameBorder="0"
+              />
             )}
           </div>
 
@@ -113,6 +135,12 @@ export default function WatchPage() {
             <Nav to={prevSlug}><ChevronLeft size={16} aria-hidden="true" /> Prev</Nav>
             <Nav to={nextSlug}>Next <ChevronRight size={16} aria-hidden="true" /></Nav>
           </div>
+
+          <p className="text-xs text-[var(--color-text-muted)] mb-3">
+            Video tidak muncul atau muncul error 403? Pilih server lain di bawah.
+            {' '}
+            <a href={current.url} target="_blank" rel="noopener noreferrer" className="text-ocean underline">Buka server ini di tab baru</a>
+          </p>
 
           {data.streams.length > 1 && (
             <div className="flex flex-wrap gap-2 mb-4">
@@ -123,7 +151,7 @@ export default function WatchPage() {
                   onClick={() => setServer(i)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${server === i ? 'bg-ocean text-white' : 'bg-surface-dark text-[var(--color-text-muted)] hover:bg-surface-hover'}`}
                 >
-                  {s.server}
+                  {s.server}{failed.includes(i) ? ' ⚠' : ''}
                 </button>
               ))}
             </div>
