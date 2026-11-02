@@ -136,12 +136,6 @@ export default function WatchPage() {
             <Nav to={nextSlug}>Next <ChevronRight size={16} aria-hidden="true" /></Nav>
           </div>
 
-          <p className="text-xs text-[var(--color-text-muted)] mb-3">
-            Video tidak muncul atau muncul error 403? Pilih server lain di bawah.
-            {' '}
-            <a href={current.url} target="_blank" rel="noopener noreferrer" className="text-ocean underline">Buka server ini di tab baru</a>
-          </p>
-
           {data.streams.length > 1 && (
             <div className="flex flex-wrap gap-2 mb-4">
               <span className="text-sm text-[var(--color-text-muted)] self-center">{t('anime.server')}</span>
