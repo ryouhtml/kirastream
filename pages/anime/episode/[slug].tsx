@@ -54,11 +54,20 @@ export default function WatchPage() {
     }
   }, [user, anime, animeSlug])
 
-  // Prev/next: dari API kalau ada, kalau tidak dari daftar episode (urut terbaru → lama)
-  const list = anime?.episodes || []
+  // Prev/next: dari API kalau ada, kalau tidak dari daftar episode yang diurutkan
+  // naik berdasarkan nomor episode (urutan dari API bisa lama→baru atau sebaliknya).
+  const numOf = (e: { slug: string; title: string }) => {
+    const m = /episode[-\s]*0*(\d+(?:\.\d+)?)/i.exec(`${e.slug} ${e.title}`)
+    return m ? parseFloat(m[1]) : NaN
+  }
+  const rawList = anime?.episodes || []
+  const sorted = rawList.every((e) => !isNaN(numOf(e)))
+    ? [...rawList].sort((a, b) => numOf(a) - numOf(b))
+    : rawList
+  const list = sorted
   const idx = list.findIndex((e) => e.slug === slug)
-  const nextSlug = data?.nextSlug || (idx > 0 ? list[idx - 1].slug : '')
-  const prevSlug = data?.prevSlug || (idx >= 0 && idx < list.length - 1 ? list[idx + 1].slug : '')
+  const prevSlug = data?.prevSlug || (idx > 0 ? list[idx - 1].slug : '')
+  const nextSlug = data?.nextSlug || (idx >= 0 && idx < list.length - 1 ? list[idx + 1].slug : '')
 
   const Nav = ({ to, children, disabled }: { to: string; children: React.ReactNode; disabled?: boolean }) =>
     disabled || !to ? (
