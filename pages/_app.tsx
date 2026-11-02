@@ -5,6 +5,7 @@ import Script from 'next/script'
 import { ReactNode, useEffect } from 'react'
 import { Noto_Sans_JP, Plus_Jakarta_Sans } from 'next/font/google'
 import { MotionConfig } from 'framer-motion'
+import { Analytics } from '@vercel/analytics/next'
 import Layout from '@/components/Layout'
 import SmoothScroll from '@/components/SmoothScroll'
 import { AuthProvider } from '@/contexts/AuthContext'
@@ -65,6 +66,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
             <AppShell>
               <Component {...pageProps} />
             </AppShell>
+            <Analytics />
           </LoadingProvider>
         </SettingsProvider>
       </AuthProvider>
