@@ -126,6 +126,10 @@ export default function WatchPage() {
                 className="absolute inset-0 w-full h-full"
                 allowFullScreen
                 allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                // Batasi kemampuan halaman embed: tanpa akses ke parent/top,
+                // tanpa form/popup, dan referer tidak dikirim.
+                sandbox="allow-scripts allow-same-origin allow-presentation allow-orientation-lock"
+                referrerPolicy="no-referrer"
                 frameBorder="0"
               />
             )}

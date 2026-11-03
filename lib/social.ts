@@ -24,16 +24,18 @@ import {
   onSnapshot,
   arrayUnion,
   arrayRemove,
+  documentId,
   Timestamp,
 } from 'firebase/firestore'
 
 // ─── TYPES ───────────────────────────────────────────────────
 
+// Email TIDAK pernah disimpan/dikembalikan ke client lain. Dokumen user bisa
+// dibaca user login (untuk pencarian), jadi data pribadi wajib minim.
 export interface SocialUser {
   uid: string
   displayName: string
   photoURL: string
-  email?: string
 }
 
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked'
@@ -126,7 +128,6 @@ export function getSocialProfile(user: any): SocialUser {
     uid: user.uid,
     displayName: user.displayName || 'KiraFan',
     photoURL: user.photoURL || '',
-    email: user.email || '',
   }
 }
 
@@ -136,12 +137,14 @@ export async function searchUsersByKeyword(keyword: string): Promise<SocialUser[
   const me = getCurrentUser()
   if (!me) return []
   const q = keyword.trim().toLowerCase()
-  if (!q) return []
+  // Minimal 2 karakter + tolak pencarian berbasis email (termasuk token lama
+  // yang mungkin masih tersimpan di dokumen user versi sebelumnya).
+  if (q.length < 2 || q.includes('@')) return []
 
   try {
     const userRef = collection(db, 'users')
 
-    // Query 1: array-contains di `keywords` — cocok dengan kata apa pun di nama/email
+    // Query 1: array-contains di `keywords` — cocok dengan kata apa pun di nama
     // (mis. cari "Santoso" ketemu "Budi Santoso").
     const [byKeyword, byPrefix] = await Promise.all([
       getDocs(query(userRef, where('keywords', 'array-contains', q), limit(10))),
@@ -162,13 +165,13 @@ export async function searchUsersByKeyword(keyword: string): Promise<SocialUser[
     for (const snap of [byKeyword, byPrefix]) {
       for (const d of snap.docs) {
         const u: any = d.data()
-        if (u.uid === me.uid || seen.has(u.uid)) continue
-        seen.add(u.uid)
+        const uid = u.uid || d.id
+        if (uid === me.uid || seen.has(uid)) continue
+        seen.add(uid)
         results.push({
-          uid: u.uid,
-          displayName: u.displayName || u.email?.split('@')[0] || 'KiraFan',
+          uid,
+          displayName: u.displayName || u.searchName || 'KiraFan',
           photoURL: u.photoURL || '',
-          email: u.email || '',
         })
       }
     }
@@ -186,12 +189,46 @@ export async function getUserById(uid: string): Promise<SocialUser | null> {
     const u: any = snap.data()
     return {
       uid: u.uid || uid,
-      displayName: u.displayName || u.email?.split('@')[0] || 'KiraFan',
+      displayName: u.displayName || u.searchName || 'KiraFan',
       photoURL: u.photoURL || '',
-      email: u.email || '',
     }
   } catch {
     return null
+  }
+}
+
+/**
+ * Ambil banyak user sekaligus dengan `documentId() in` (maks 10 per query),
+ * supaya daftar teman/percakapan tidak memicu N+1 read.
+ */
+export async function getUsersByIds(uids: string[]): Promise<SocialUser[]> {
+  const unique = Array.from(new Set(uids.filter(Boolean)))
+  if (unique.length === 0) return []
+
+  const chunks: string[][] = []
+  for (let i = 0; i < unique.length; i += 10) chunks.push(unique.slice(i, i + 10))
+
+  try {
+    const snaps = await Promise.all(
+      chunks.map((chunk) =>
+        getDocs(query(collection(db, 'users'), where(documentId(), 'in', chunk)))
+      )
+    )
+    const byId = new Map<string, SocialUser>()
+    for (const snap of snaps) {
+      for (const d of snap.docs) {
+        const u: any = d.data()
+        byId.set(d.id, {
+          uid: u.uid || d.id,
+          displayName: u.displayName || u.searchName || 'KiraFan',
+          photoURL: u.photoURL || '',
+        })
+      }
+    }
+    // Pertahankan urutan input supaya tampilan stabil.
+    return unique.map((uid) => byId.get(uid)).filter((u): u is SocialUser => Boolean(u))
+  } catch {
+    return []
   }
 }
 
@@ -326,14 +363,8 @@ export async function getFriendIds(): Promise<string[]> {
 export async function getFriends(): Promise<SocialUser[]> {
   const ids = await getFriendIds()
   if (ids.length === 0) return []
-  // Ambil detail per user (Firestore array-contains nggak bisa dua kolom sekaligus,
-  // dan doc terbalik sudah pasti ada karena kita tulis dua arah saat accepted).
-  const results: SocialUser[] = []
-  for (const id of ids.slice(0, 20)) {
-    const u = await getUserById(id)
-    if (u) results.push(u)
-  }
-  return results
+  // Satu kali batch read, bukan satu read per teman.
+  return getUsersByIds(ids.slice(0, 30))
 }
 
 // ─── GROUPS ──────────────────────────────────────────────────
@@ -348,34 +379,27 @@ export async function createGroup(
 
   try {
     const myInfo = getSocialProfile(me)
-    const memberIds = Array.from(new Set([me.uid, ...memberUids]))
+    // Batasi jumlah member agar sesuai rules dan tidak dipakai untuk spam.
+    const memberIds = Array.from(new Set([me.uid, ...memberUids])).slice(0, 50)
     const members: GroupMember[] = [
       { uid: me.uid, displayName: myInfo.displayName, photoURL: myInfo.photoURL, role: 'owner' },
     ]
-    for (const uid of memberUids) {
+    for (const uid of memberIds) {
       if (uid === me.uid) continue
       const u = await getUserById(uid)
       if (u) members.push({ uid: u.uid, displayName: u.displayName, photoURL: u.photoURL, role: 'member' })
     }
 
     const groupRef = await addDoc(collection(db, 'groups'), {
-      name: name.trim(),
-      description: description.trim(),
+      name: name.trim().slice(0, 60),
+      description: description.trim().slice(0, 300),
       ownerId: me.uid,
-      memberIds,
+      memberIds: members.map((m) => m.uid),
       members,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
 
-    // Referensi ke grup buat tiap member (buat "grupku").
-    for (const m of members) {
-      await setDoc(doc(db, 'users', m.uid, 'groups', groupRef.id), {
-        groupName: name.trim(),
-        role: m.role,
-        joinedAt: serverTimestamp(),
-      })
-    }
     return { success: true, id: groupRef.id }
   } catch {
     return { success: false, error: 'Gagal membuat grup' }
@@ -386,14 +410,17 @@ export async function getMyGroups(): Promise<Group[]> {
   const me = getCurrentUser()
   if (!me) return []
   try {
-    const ref = collection(db, 'users', me.uid, 'groups')
-    const snap = await getDocs(query(ref, orderBy('joinedAt', 'desc')))
-    const groups: Group[] = []
-    for (const g of snap.docs) {
-      const gSnap = await getDoc(doc(db, 'groups', g.id))
-      if (gSnap.exists()) groups.push({ id: gSnap.id, ...(gSnap.data() as any) })
-    }
-    return groups
+    // Group membership disimpan di dokumen grup (bukan mirror per user),
+    // jadi cukup satu query array-contains.
+    const snap = await getDocs(
+      query(
+        collection(db, 'groups'),
+        where('memberIds', 'array-contains', me.uid),
+        orderBy('updatedAt', 'desc'),
+        limit(50)
+      )
+    )
+    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
   } catch {
     return []
   }
@@ -421,8 +448,13 @@ export async function addGroupMembers(
     if (!group) return { success: false, error: 'Grup tidak ditemukan' }
     if (group.ownerId !== me.uid) return { success: false, error: 'Hanya owner yang bisa menambah member' }
 
-    const newMemberIds = memberUids.filter((u) => !group.memberIds.includes(u))
-    const members = group.members || []
+    const existingIds = group.memberIds || []
+    const newMemberIds = memberUids
+      .filter((u) => u && !existingIds.includes(u))
+      .slice(0, Math.max(0, 50 - existingIds.length))
+    if (newMemberIds.length === 0) return { success: true }
+
+    const members = [...(group.members || [])]
     for (const uid of newMemberIds) {
       const u = await getUserById(uid)
       if (u) members.push({ uid: u.uid, displayName: u.displayName, photoURL: u.photoURL, role: 'member' })
@@ -433,13 +465,6 @@ export async function addGroupMembers(
       members,
       updatedAt: serverTimestamp(),
     })
-    for (const uid of newMemberIds) {
-      await setDoc(doc(db, 'users', uid, 'groups', groupId), {
-        groupName: group.name,
-        role: 'member',
-        joinedAt: serverTimestamp(),
-      })
-    }
     return { success: true }
   } catch {
     return { success: false, error: 'Gagal menambah member' }
@@ -456,16 +481,46 @@ export async function removeGroupMember(
     const group = await getGroup(groupId)
     if (!group) return { success: false, error: 'Grup tidak ditemukan' }
     if (group.ownerId !== me.uid) return { success: false, error: 'Hanya owner yang bisa menghapus member' }
+    if (memberUid === group.ownerId) {
+      return { success: false, error: 'Owner tidak bisa dikeluarkan. Hapus grup saja ya~' }
+    }
 
     await updateDoc(doc(db, 'groups', groupId), {
       memberIds: arrayRemove(memberUid),
       members: (group.members || []).filter((m: GroupMember) => m.uid !== memberUid),
       updatedAt: serverTimestamp(),
     })
-    await deleteDoc(doc(db, 'users', memberUid, 'groups', groupId))
     return { success: true }
   } catch {
     return { success: false, error: 'Gagal menghapus member' }
+  }
+}
+
+/**
+ * Keluar dari grup. Owner tidak bisa keluar — harus menghapus grup agar tidak
+ * ada grup tanpa pemilik.
+ */
+export async function leaveGroup(groupId: string): Promise<{ success: boolean; error?: string }> {
+  const me = getCurrentUser()
+  if (!me) return { success: false, error: 'Login dulu ya~' }
+  try {
+    const group = await getGroup(groupId)
+    if (!group) return { success: false, error: 'Grup tidak ditemukan' }
+    if (!(group.memberIds || []).includes(me.uid)) {
+      return { success: false, error: 'Kamu bukan member grup ini' }
+    }
+    if (group.ownerId === me.uid) {
+      return { success: false, error: 'Owner tidak bisa keluar. Hapus grup saja ya~' }
+    }
+
+    await updateDoc(doc(db, 'groups', groupId), {
+      memberIds: arrayRemove(me.uid),
+      members: (group.members || []).filter((m: GroupMember) => m.uid !== me.uid),
+      updatedAt: serverTimestamp(),
+    })
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Gagal keluar dari grup' }
   }
 }
 
@@ -494,19 +549,23 @@ export function conversationId(a: string, b: string) {
 
 export async function getOrCreateConversation(otherUid: string): Promise<string | null> {
   const me = getCurrentUser()
-  if (!me) return null
+  if (!me || !otherUid || otherUid === me.uid) return null
   const convId = conversationId(me.uid, otherUid)
-  const convRef = doc(db, 'conversations', convId)
-  const snap = await getDoc(convRef)
-  if (!snap.exists()) {
-    await setDoc(convRef, {
-      memberIds: [me.uid, otherUid],
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      lastMessage: '',
-    })
+  try {
+    const convRef = doc(db, 'conversations', convId)
+    const snap = await getDoc(convRef)
+    if (!snap.exists()) {
+      await setDoc(convRef, {
+        memberIds: [me.uid, otherUid],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastMessage: '',
+      })
+    }
+    return convId
+  } catch {
+    return null
   }
-  return convId
 }
 
 export async function getConversations(): Promise<Conversation[]> {
@@ -523,6 +582,37 @@ export async function getConversations(): Promise<Conversation[]> {
   }
 }
 
+/**
+ * Href share hanya boleh path internal (diawali "/" tapi bukan "//") atau URL
+ * https. Ini mencegah `javascript:`/`data:` XSS saat link dirender.
+ */
+export function isSafeShareHref(href: unknown): boolean {
+  if (typeof href !== 'string') return false
+  const value = href.trim()
+  if (!value) return false
+  // Backslash bisa dinormalisasi browser menjadi "//" (open redirect).
+  if (value.includes('\\')) return false
+  if (value.startsWith('/') && !value.startsWith('//')) return true
+  try {
+    return new URL(value).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function sanitizeSharePayload(share: SharePayload): SharePayload | null {
+  if (!share || !isSafeShareHref(share.href)) return null
+  if (typeof share.image !== 'string' || !/^https?:\/\//i.test(share.image)) return null
+  const kind = ['anime', 'manga', 'webtoon', 'novel'].includes(share.kind) ? share.kind : 'anime'
+  return {
+    kind,
+    slug: String(share.slug || '').slice(0, 200),
+    title: String(share.title || 'Tanpa judul').slice(0, 200),
+    image: share.image,
+    href: share.href,
+  }
+}
+
 export async function sendMessage(
   path: 'group' | 'dm',
   targetId: string,
@@ -530,6 +620,12 @@ export async function sendMessage(
 ): Promise<{ success: boolean; error?: string }> {
   const me = getCurrentUser()
   if (!me) return { success: false, error: 'Login dulu ya~' }
+
+  let share = msg.share || null
+  if (msg.type === 'share') {
+    share = share ? sanitizeSharePayload(share) : null
+    if (!share) return { success: false, error: 'Data share tidak valid' }
+  }
 
   try {
     const myInfo = getSocialProfile(me)
@@ -543,23 +639,25 @@ export async function sendMessage(
       senderName: myInfo.displayName,
       senderPhoto: myInfo.photoURL,
       type: msg.type,
-      text: msg.text || '',
-      share: msg.share || null,
+      text: (msg.text || '').slice(0, 2000),
+      share,
       sticker: msg.sticker || '',
       createdAt: serverTimestamp(),
     })
 
     const summary =
-      msg.type === 'text' ? msg.text : msg.type === 'share' ? `📺 ${msg.share?.title}` : '🖼 Stiker'
+      msg.type === 'text' ? (msg.text || '').slice(0, 120) : msg.type === 'share' ? `📺 ${share?.title}` : '🖼 Stiker'
     if (path === 'group') {
       await updateDoc(doc(db, 'groups', targetId), {
         updatedAt: serverTimestamp(),
         lastMessage: summary,
+        lastMessageAt: serverTimestamp(),
       })
     } else {
       await updateDoc(doc(db, 'conversations', targetId), {
         updatedAt: serverTimestamp(),
         lastMessage: summary,
+        lastMessageAt: serverTimestamp(),
       })
     }
     return { success: true }
@@ -578,10 +676,18 @@ export function subscribeMessages(
       ? collection(db, 'groups', targetId, 'messages')
       : collection(db, 'conversations', targetId, 'messages')
   const q = query(base, orderBy('createdAt', 'asc'), limit(200))
-  return onSnapshot(q, (snap) => {
-    const msgs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
-    callback(msgs)
-  })
+  return onSnapshot(
+    q,
+    (snap) => {
+      const msgs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))
+      callback(msgs)
+    },
+    (error) => {
+      // Jangan biarkan listener error (mis. permission-denied) memicu unhandled rejection.
+      console.warn('subscribeMessages error:', error?.code || error?.message || error)
+      callback([])
+    }
+  )
 }
 
 // ─── STICKERS (per user, base64) ─────────────────────────────

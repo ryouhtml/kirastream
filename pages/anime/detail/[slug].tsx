@@ -161,7 +161,7 @@ export default function AnimeDetailPage() {
         >
           <div className="relative min-h-[300px] sm:min-h-[260px] md:min-h-80 rounded-t-2xl overflow-hidden bg-[var(--color-surface-alt)]">
             <Image
-              src={`/api/mal-image?url=${encodeURIComponent(anime.image)}`}
+              src={`/api/proxy?url=${encodeURIComponent(anime.image)}`}
               alt={anime.title}
               fill
               className="object-cover opacity-30"
@@ -173,7 +173,7 @@ export default function AnimeDetailPage() {
                 {/* Poster */}
                 <div className="relative w-32 h-48 md:w-40 md:h-60 flex-shrink-0 rounded-lg overflow-hidden border border-[var(--color-border)] shadow-2xl">
                   <Image
-                    src={`/api/mal-image?url=${encodeURIComponent(anime.image)}`}
+                    src={`/api/proxy?url=${encodeURIComponent(anime.image)}`}
                     alt={anime.title}
                     fill
                     className="object-cover"

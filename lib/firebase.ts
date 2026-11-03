@@ -32,6 +32,7 @@ import {
   limit,
   getDocs,
   serverTimestamp,
+  deleteField,
   Firestore,
 } from 'firebase/firestore'
 
@@ -196,7 +197,7 @@ export async function updateUserProfile(user: User, updates: { displayName?: str
       await updateUserFirestore(user.uid, {
         displayName: updates.displayName,
         searchName: updates.displayName.toLowerCase(),
-        keywords: buildUserSearchTokens(updates.displayName, user.email || ''),
+        keywords: buildUserSearchTokens(updates.displayName),
       })
     }
     if (updates.photoURL) {
@@ -210,34 +211,32 @@ export async function updateUserProfile(user: User, updates: { displayName?: str
 
 // ─── FIRESTORE FUNCTIONS ─────────────────────────────────────
 
-// Token pencarian untuk user: dipakai query `array-contains` di Firestore.
-// Contoh: "Budi Santoso" => ["budi", "santoso", "budi santoso", "budi@gmail.com", ...]
-function buildUserSearchTokens(displayName: string, email: string): string[] {
+// Token pencarian user: dipakai query `array-contains` di Firestore.
+// Hanya dari display name — email TIDAK boleh disimpan atau dijadikan token
+// karena dokumen user bisa dibaca user login lain.
+// Contoh: "Budi Santoso" => ["budi santoso", "budi", "santoso"]
+function buildUserSearchTokens(displayName: string): string[] {
   const tokens = new Set<string>()
-  const name = (displayName || email?.split('@')[0] || 'kirafan').trim().toLowerCase()
+  const name = (displayName || '').trim().toLowerCase()
+  if (!name) return ['kirafan']
   tokens.add(name)
   name.split(/\s+/).filter(Boolean).forEach((w) => tokens.add(w))
-  const emailLower = (email || '').trim().toLowerCase()
-  if (emailLower) {
-    tokens.add(emailLower)
-    const local = emailLower.split('@')[0]
-    if (local) tokens.add(local)
-  }
   return Array.from(tokens)
 }
 
 export async function syncUserToFirestore(user: User) {
   const userRef = doc(db, 'users', user.uid)
   const userSnap = await getDoc(userRef)
-  
+
+  const displayName = user.displayName || 'KiraFan'
+
   if (!userSnap.exists()) {
-    // User baru
+    // User baru — tanpa field email.
     await setDoc(userRef, {
       uid: user.uid,
-      email: user.email || '',
-      displayName: user.displayName || 'KiraFan',
-      searchName: (user.displayName || user.email?.split('@')[0] || 'kirafan').toLowerCase(),
-      keywords: buildUserSearchTokens(user.displayName || '', user.email || ''),
+      displayName,
+      searchName: displayName.toLowerCase(),
+      keywords: buildUserSearchTokens(displayName),
       photoURL: user.photoURL || '',
       role: 'user',
       createdAt: serverTimestamp(),
@@ -253,21 +252,28 @@ export async function syncUserToFirestore(user: User) {
       },
     })
   } else {
-    // Update data lama
+    // Update data lama + bersihkan sisa data pribadi dari versi sebelumnya.
     const updates: any = {}
     const data = userSnap.data()
-    
-    if (user.email && data.email !== user.email) updates.email = user.email
+
+    if (data.email != null) updates.email = deleteField()
     if (user.displayName && !data.displayName) updates.displayName = user.displayName
     if (user.photoURL && !data.photoURL) updates.photoURL = user.photoURL
-    if (!data.searchName) {
-      updates.searchName = (user.displayName || user.email?.split('@')[0] || 'kirafan').toLowerCase()
+
+    // Nama efektif untuk searchName/keywords: jangan pakai email lokal lagi.
+    const effectiveName = user.displayName || data.displayName || 'KiraFan'
+    if (!data.searchName || data.email != null || data.searchName !== effectiveName.toLowerCase()) {
+      updates.searchName = effectiveName.toLowerCase()
     }
-    // Backfill keywords buat user lama yang belum punya (biar bisa ketemu saat dicari).
-    if (!data.keywords) {
-      updates.keywords = buildUserSearchTokens(user.displayName || '', user.email || '')
+
+    // Rebuild keywords jika belum ada, masih memuat token email lama, atau
+    // dokumen lama masih menyimpan field email (yang akan dihapus di atas).
+    const keywords: string[] = Array.isArray(data.keywords) ? data.keywords : []
+    const hasEmailToken = keywords.some((token) => String(token).includes('@'))
+    if (!data.keywords || hasEmailToken || data.email != null) {
+      updates.keywords = buildUserSearchTokens(effectiveName)
     }
-    
+
     if (Object.keys(updates).length > 0) {
       await updateDoc(userRef, updates)
     }

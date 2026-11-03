@@ -12,7 +12,7 @@ import type { SpotlightItem } from '@/components/LandscapeSpotlight'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
 
-const imageProxy = (url: string) => `/api/mal-image?url=${encodeURIComponent(url)}`
+const imageProxy = (url: string) => `/api/proxy?url=${encodeURIComponent(url)}`
 
 function toSpotlight(anime: Anime): SpotlightItem {
   return {

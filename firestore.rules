@@ -3,82 +3,142 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── USERS ───────────────────────────────────────────────
-    // Setiap user cuma bisa baca/tulis doc dirinya sendiri.
-    // Search users butuh list/query — izinkan get+list untuk yang sudah login.
-    match /users/{uid} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+    function signedIn() {
+      return request.auth != null;
+    }
 
-      // Subcollection: history, favorites, watchlist, continue, groups, stickers
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // ─── USERS ───────────────────────────────────────────────
+    // Dokumen profil boleh dibaca user login (dibutuhkan untuk pencarian &
+    // menampilkan nama/foto). JANGAN simpan email/telepon di sini.
+    // Semua subcollection (history, favorites, watchlist, continue, stickers,
+    // groups) bersifat privat: hanya pemilik yang boleh baca/tulis.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow write: if isSelf(uid);
+
       match /{document=**} {
-        allow read: if request.auth != null;
-        allow write: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if isSelf(uid);
       }
     }
 
     // ─── FRIENDSHIPS ─────────────────────────────────────────
-    // Doc dibuat saat kirim/terima permintaan. Yang boleh baca: yang terlibat.
-    // Yang boleh tulis: si pengirim (from.uid == auth.uid) saat kirim,
-    // atau salah satu dari kedua user saat update status / delete.
-    // Catatan: `resource == null` dibutuhkan karena sendFriendRequest/getDoc
-    // membaca doc yang belum ada — tanpa guard ini akses resource.data gagal
-    // (permission-denied) walau rules sudah benar.
+    // Doc A_to_B = permintaan dari A ke B. Hanya pihak yang terlibat yang
+    // boleh baca/ubah. Saat menerima, client juga membuat doc balik
+    // (B_to_A, status accepted) sehingga `from` harus user yang login.
     match /friendships/{id} {
-      allow read: if request.auth != null
+      allow read: if signedIn()
         && (resource == null
             || resource.data.from.uid == request.auth.uid
             || resource.data.to.uid == request.auth.uid);
-      allow create: if request.auth != null
-        && request.resource.data.from.uid == request.auth.uid;
-      allow update, delete: if request.auth != null
+      allow create: if signedIn()
+        && request.resource.data.from.uid == request.auth.uid
+        && request.resource.data.to.uid != request.auth.uid
+        && request.resource.data.status in ['pending', 'accepted'];
+      // Hanya penerima yang boleh menerima/menolak permintaan; pengirim tidak
+      // bisa mengubah status sendiri menjadi "accepted".
+      allow update: if signedIn()
+        && resource.data.to.uid == request.auth.uid
+        && request.resource.data.from.uid == resource.data.from.uid
+        && request.resource.data.to.uid == resource.data.to.uid
+        && request.resource.data.status in ['accepted', 'blocked']
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'acceptedAt']);
+      allow delete: if signedIn()
         && (resource.data.from.uid == request.auth.uid
             || resource.data.to.uid == request.auth.uid);
     }
 
     // ─── GROUPS ──────────────────────────────────────────────
-    // Baca: member grup (via memberIds) atau owner. Tulis: owner (update/delete).
     match /groups/{groupId} {
-      allow read: if request.auth != null
+      allow read: if signedIn()
         && (resource == null
             || (resource.data.memberIds != null
-                && resource.data.memberIds.hasAny([request.auth.uid]))
+                && request.auth.uid in resource.data.memberIds)
             || resource.data.ownerId == request.auth.uid);
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && resource.data.ownerId == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
 
-      // Pesan grup: baca member, tulis member (kirim pesan).
+      // Pembuat wajib jadi owner dan member. Batasi ukuran agar tidak dipakai
+      // untuk spam grup raksasa.
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberIds.size() <= 50
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.description.size() <= 300;
+
+      // Owner bebas mengubah; member hanya boleh mengeluarkan dirinya sendiri
+      // (leave group) atau memperbarui ringkasan pesan terakhir.
+      allow update: if signedIn() && (
+        resource.data.ownerId == request.auth.uid
+        || (
+          request.auth.uid in resource.data.memberIds
+          && !(request.auth.uid in request.resource.data.memberIds)
+          && resource.data.memberIds.hasAll(request.resource.data.memberIds)
+          && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['memberIds', 'members', 'updatedAt'])
+        )
+        || (
+          request.auth.uid in resource.data.memberIds
+          && request.resource.data.memberIds == resource.data.memberIds
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['updatedAt', 'lastMessage', 'lastMessageAt'])
+        )
+      );
+
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+
+      // Pesan grup: baca/tulis hanya member, dan senderId tidak boleh dipalsukan.
       match /messages/{messageId} {
-        allow read: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds.hasAny([request.auth.uid]);
-        allow create: if request.auth != null
-          && get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds.hasAny([request.auth.uid]);
-        allow update, delete: if request.auth != null
+        allow read: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+        allow create: if signedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.type in ['text', 'share', 'sticker']
+          && request.resource.data.text.size() <= 2000
+          && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+        allow update: if false;
+        allow delete: if signedIn()
           && resource.data.senderId == request.auth.uid;
       }
     }
 
     // ─── CONVERSATIONS (DM) ──────────────────────────────────
-    // Baca/tulis: hanya user yang terlibat (via memberIds).
-    // `resource == null` sama seperti friendships: getOrCreateConversation
-    // membaca doc conversation yang belum ada saat DM pertama kali.
+    // memberIds tidak boleh diubah setelah dibuat. Tanpa aturan ini, siapa pun
+    // yang tahu ID percakapan (deterministik dari uid) bisa menambahkan dirinya
+    // sebagai member lalu membaca seluruh isi DM.
     match /conversations/{convId} {
-      allow read: if request.auth != null
-        && (resource == null
-            || (resource.data.memberIds != null
-                && request.auth.uid in resource.data.memberIds));
-      allow write: if request.auth != null
-        && request.resource.data.memberIds != null
+      // `resource == null` diperlukan karena getOrCreateConversation membaca
+      // doc yang belum ada; tanpa ini, DM baru selalu permission-denied.
+      allow read: if signedIn() && (
+        resource == null || request.auth.uid in resource.data.memberIds
+      );
+      allow create: if signedIn()
+        && request.resource.data.memberIds.size() == 2
+        && request.resource.data.memberIds[0] != request.resource.data.memberIds[1]
         && request.auth.uid in request.resource.data.memberIds;
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.memberIds
+        && request.resource.data.memberIds == resource.data.memberIds
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['updatedAt', 'lastMessage', 'lastMessageAt']);
+      allow delete: if false;
 
-      // Pesan DM: baca/tulis hanya peserta.
+      // Pesan DM: baca/tulis hanya peserta, senderId wajib sesuai user login.
       match /messages/{messageId} {
-        allow read: if request.auth != null
+        allow read: if signedIn()
           && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
-        allow create: if request.auth != null
+        allow create: if signedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.type in ['text', 'share', 'sticker']
+          && request.resource.data.text.size() <= 2000
           && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
-        allow update, delete: if request.auth != null
+        allow update: if false;
+        allow delete: if signedIn()
           && resource.data.senderId == request.auth.uid;
       }
     }

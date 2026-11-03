@@ -11,6 +11,7 @@ import {
   getMyStickers,
   deleteSticker,
   formatMessageTime,
+  isSafeShareHref,
   type ChatMessage,
 } from '@/lib/social'
 
@@ -172,6 +173,8 @@ export default function ChatRoom({ path, targetId }: ChatRoomProps) {
 
 function MessageRow({ msg, isMine, isGroup, t }: { msg: ChatMessage; isMine: boolean; isGroup: boolean; t: (key: string) => string }) {
   const showIdentity = isGroup && !isMine
+  // Jangan pernah render href yang tidak aman (mis. `javascript:` dari data lama).
+  const shareHref = msg.share && isSafeShareHref(msg.share.href) ? msg.share.href : ''
 
   if (msg.type === 'sticker') {
     return (
@@ -202,8 +205,8 @@ function MessageRow({ msg, isMine, isGroup, t }: { msg: ChatMessage; isMine: boo
             <p className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] mb-2 flex items-center gap-1">
               {t('chat.share').replace('{kind}', msg.share?.kind || '')}
             </p>
-            {msg.share?.href ? (
-              <Link href={msg.share.href} className="flex items-center gap-3 group">
+            {msg.share && shareHref ? (
+              <Link href={shareHref} className="flex items-center gap-3 group">
                 {msg.share.image ? (
                   <img
                     src={`/api/proxy?url=${encodeURIComponent(msg.share.image)}`}

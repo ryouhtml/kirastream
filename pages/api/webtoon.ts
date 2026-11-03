@@ -1,19 +1,27 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { fetchRemote, RemoteFetchError } from '@/lib/server-proxy'
 
 const BASE = 'https://www.webtoons.com'
+const WEBTOON_HOSTS = ['webtoons.com']
 
 async function fetchHtml(path: string) {
   const url = path.startsWith('http') ? path : `${BASE}${path}`
-  const { data } = await axios.get(url, {
+  const { data } = await fetchRemote(url, {
+    allowHosts: WEBTOON_HOSTS,
+    protocols: ['https:'],
+    timeoutMs: 10_000,
+    maxBytes: 5 * 1024 * 1024,
+    // Redirect tetap diizinkan, tapi setiap hop divalidasi ulang terhadap
+    // allowHosts + https oleh fetchRemote.
+    maxRedirects: 2,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       Referer: 'https://www.webtoons.com/',
       Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     },
   })
-  return data
+  return data.toString('utf8')
 }
 
 function uniqueByUrl(items: Array<Record<string, unknown>>) {
@@ -100,11 +108,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (Number.isFinite(t) && t > totalPages) totalPages = t
       })
 
-      const MAX_PAGES = 200 // safety cap (~2000 episode)
+      // Batasi jumlah halaman & konkurensi supaya endpoint ini tidak bisa
+      // dipakai sebagai amplifier DoS ke upstream.
+      const MAX_PAGES = 20
+      const BATCH_SIZE = 2
       const lastPage = Math.min(totalPages, MAX_PAGES)
       const sep = baseUrl.includes('?') ? '&' : '?'
-      for (let start = 2; start <= lastPage; start += 5) {
-        const end = Math.min(start + 4, lastPage)
+      for (let start = 2; start <= lastPage; start += BATCH_SIZE) {
+        const end = Math.min(start + BATCH_SIZE - 1, lastPage)
         const results = await Promise.allSettled(
           Array.from({ length: end - start + 1 }, (_, i) => fetchHtml(`${baseUrl}${sep}page=${start + i}`))
         )
@@ -132,7 +143,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(400).json({ error: 'Invalid action' })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return res.status(500).json({ error: message })
+    console.error('Webtoon API error:', error instanceof Error ? error.message : error)
+    const status = error instanceof RemoteFetchError ? error.status : 502
+    return res.status(status).json({ error: 'Gagal mengambil data dari sumber' })
   }
 }

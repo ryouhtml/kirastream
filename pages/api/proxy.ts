@@ -1,6 +1,23 @@
 // pages/api/proxy.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
-import axios from 'axios'
+import {
+  applyImageHeaders,
+  assertRemoteUrl,
+  detectImageType,
+  fetchRemote,
+  RemoteFetchError,
+} from '@/lib/server-proxy'
+
+const MAX_URL_LENGTH = 2048
+const SAKURANOVEL_HOST = /(^|\.)sakuranovel\.id$/i
+
+function refererFor(hostname: string): string {
+  // Beberapa CDN (Webtoons, MyAnimeList) punya hotlink protection yang cuma
+  // ngizinin Referer dari domain resminya sendiri.
+  if (/webtoons\.com|pstatic\.net/i.test(hostname)) return 'https://www.webtoons.com/'
+  if (/myanimelist\.net/i.test(hostname)) return 'https://myanimelist.net/'
+  return `https://${hostname}/`
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { url } = req.query
@@ -8,53 +25,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!url || typeof url !== 'string') {
     return res.status(400).json({ error: 'URL parameter is required' })
   }
+  if (url.length > MAX_URL_LENGTH) {
+    return res.status(414).json({ error: 'URL terlalu panjang' })
+  }
 
   try {
-    const hostname = new URL(url).hostname
+    const target = await assertRemoteUrl(url, { protocols: ['http:', 'https:'] })
 
-    // sakuranovel.id kelihatannya pake proteksi anti-bot (Cloudflare/WAF) yang nge-block
-    // request langsung dari server kita (403) walopun header/referer udah dibikin mirip browser.
-    // wsrv.nl itu image proxy pihak ketiga yang IP-nya biasanya gak ke-block situs kayak gini,
-    // jadi request kita "titip" lewat sana khusus buat domain ini.
-    if (/sakuranovel\.id/i.test(hostname)) {
-      const wsrvUrl = `https://wsrv.nl/?url=${encodeURIComponent(url)}`
-      const response = await axios.get(wsrvUrl, { responseType: 'arraybuffer', timeout: 15000 })
-      const contentType = response.headers['content-type'] as string
-      res.setHeader('Content-Type', contentType || 'image/jpeg')
-      res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate')
-      return res.send(response.data)
+    // sakuranovel.id diproteksi Cloudflare/WAF yang memblokir request server.
+    // Titipkan lewat wsrv.nl (image proxy publik) khusus domain ini.
+    const upstream = SAKURANOVEL_HOST.test(target.hostname)
+      ? await fetchRemote(`https://wsrv.nl/?url=${encodeURIComponent(target.toString())}`, {
+          timeoutMs: 15_000,
+        })
+      : await fetchRemote(target.toString(), {
+          protocols: ['http:', 'https:'],
+          timeoutMs: 15_000,
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Referer: refererFor(target.hostname),
+            Accept: 'image/avif,image/webp,image/apng,image/png,image/jpeg,image/gif,image/*,*/*;q=0.8',
+          },
+        })
+
+    // Hanya gambar raster asli yang boleh dikirim balik. Ini mencegah upstream
+    // menyajikan HTML/SVG yang bisa dieksekusi di origin aplikasi.
+    const imageType = detectImageType(upstream.data)
+    if (!imageType) {
+      return res.status(415).json({ error: 'Upstream bukan gambar yang didukung' })
     }
 
-    // Beberapa CDN lain (Webtoons, MyAnimeList) punya hotlink protection yang cuma
-    // ngizinin Referer dari domain resminya sendiri, bukan dari origin URL gambarnya.
-    let referer = new URL(url).origin + '/'
-    if (/webtoons\.com|pstatic\.net/i.test(hostname)) {
-      referer = 'https://www.webtoons.com/'
-    } else if (/myanimelist\.net/i.test(hostname)) {
-      referer = 'https://myanimelist.net/'
-    }
-
-    const response = await axios.get(url, {
-      responseType: 'arraybuffer', // Penting untuk gambar
-      timeout: 15000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Referer': referer,
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      },
-    })
-
-    const contentType = response.headers['content-type'] as string
-    res.setHeader('Content-Type', contentType || 'image/jpeg')
-    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate')
-    res.send(response.data)
-  } catch (error: any) {
-    // Sementara di-expose detailnya biar ketauan penyebab asli (403 block, timeout, dll)
-    console.error('Image proxy error:', error?.response?.status, error?.message)
-    res.status(500).json({
-      error: 'Failed to fetch image',
-      detail: error?.message || 'unknown',
-      upstreamStatus: error?.response?.status ?? null,
-    })
+    applyImageHeaders(res, imageType)
+    return res.send(upstream.data)
+  } catch (error) {
+    console.error('Image proxy error:', error instanceof Error ? error.message : error)
+    const status = error instanceof RemoteFetchError ? error.status : 502
+    return res.status(status).json({ error: 'Gagal mengambil gambar' })
   }
 }

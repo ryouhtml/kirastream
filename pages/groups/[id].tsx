@@ -10,6 +10,7 @@ import {
   getGroup,
   addGroupMembers,
   removeGroupMember,
+  leaveGroup,
   getFriends,
   type Group,
   type GroupMember,
@@ -116,7 +117,7 @@ export default function GroupDetailPage() {
   const handleLeave = async () => {
     if (!user) return
     if (!confirm(t('groups.confirmLeave'))) return
-    const res = await removeGroupMember(group.id, user.uid)
+    const res = await leaveGroup(group.id)
     if (res.success) router.push('/groups')
   }
 

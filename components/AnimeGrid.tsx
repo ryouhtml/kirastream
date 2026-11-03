@@ -10,8 +10,9 @@ import { translate } from '@/lib/i18n'
 import { motionTokens, adaptiveDuration } from '@/lib/motionTokens'
 import { useAnimationsEnabled } from '@/lib/hooks/useAnimations'
 
-// Helper untuk proxy gambar
-const imageProxy = (url: string) => `/api/mal-image?url=${encodeURIComponent(url)}`
+// Helper untuk proxy gambar (poster Animekompi bisa berasal dari host/CDN
+// berbeda, jadi pakai proxy umum — bukan endpoint khusus MyAnimeList).
+const imageProxy = (url: string) => `/api/proxy?url=${encodeURIComponent(url)}`
 
 const MotionLink = motion(Link)
 

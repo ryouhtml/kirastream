@@ -195,7 +195,7 @@ export default function Home() {
                 title={data.completed[0].title}
                 href={`/anime/detail/${data.completed[0].slug}`}
                 image={data.completed[0].image}
-                imageProxy={(url) => `/api/mal-image?url=${encodeURIComponent(url)}`}
+                imageProxy={(url) => `/api/proxy?url=${encodeURIComponent(url)}`}
                 score={data.completed[0].score}
                 type={data.completed[0].type}
                 episode={data.completed[0].episode}
@@ -274,7 +274,7 @@ export default function Home() {
                         transition={{ duration: adaptiveDuration(motionTokens.duration.fast), ease: motionTokens.easing.smooth }}
                       >
                         <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-[var(--color-surface-alt)]">
-                          <Image src={`/api/mal-image?url=${encodeURIComponent(anime.image || '')}`} alt={anime.title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                          <Image src={`/api/proxy?url=${encodeURIComponent(anime.image || '')}`} alt={anime.title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
                           {anime.episode && <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm px-1 py-1 text-center text-xs font-bold text-white">Ep {anime.episode}</div>}
                         </div>
                         <p className="mt-1 line-clamp-2 text-center text-xs font-medium" style={textStyle()}>{anime.title}</p>

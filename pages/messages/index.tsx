@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { MessageCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSettings } from '@/contexts/SettingsContext'
-import { getConversations, getUserById, formatMessageTime, type Conversation } from '@/lib/social'
+import { getConversations, getUsersByIds, formatMessageTime, type Conversation } from '@/lib/social'
 import { translate } from '@/lib/i18n'
 
 interface ConvWithUser extends Conversation {
@@ -31,21 +31,23 @@ export default function MessagesPage() {
     }
     setLoading(true)
     getConversations().then(async (list) => {
-      const enriched: ConvWithUser[] = await Promise.all(
-        list.map(async (c) => {
-          const otherUid = (c.memberIds || []).find((p) => p !== user.uid) || ''
-          let otherName = 'KiraFan'
-          let otherPhoto: string | null = null
-          if (otherUid) {
-            const other = await getUserById(otherUid)
-            if (other) {
-              otherName = other.displayName
-              otherPhoto = other.photoURL
-            }
-          }
-          return { ...c, otherUid, otherName, otherPhoto }
-        })
-      )
+      const otherUids = list
+        .map((c) => (c.memberIds || []).find((p) => p !== user.uid) || '')
+        .filter(Boolean)
+      // Satu batch read untuk semua lawan bicara, bukan N+1.
+      const users = await getUsersByIds(otherUids)
+      const byId = new Map(users.map((u) => [u.uid, u]))
+
+      const enriched: ConvWithUser[] = list.map((c) => {
+        const otherUid = (c.memberIds || []).find((p) => p !== user.uid) || ''
+        const other = byId.get(otherUid)
+        return {
+          ...c,
+          otherUid,
+          otherName: other?.displayName || 'KiraFan',
+          otherPhoto: other?.photoURL || null,
+        }
+      })
       setConvs(enriched)
       setLoading(false)
     })

@@ -23,7 +23,54 @@ const nextConfig = {
     ]
   },
   async headers() {
+    // CSP disesuaikan dengan kebutuhan Next.js (inline bootstrap), Firebase Auth,
+    // reCAPTCHA, serta host gambar/video yang dipakai aplikasi.
+    const csp = [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "form-action 'self'",
+      "frame-ancestors 'self'",
+      `script-src 'self' 'unsafe-inline'${
+        process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''
+      } https://apis.google.com https://www.gstatic.com https://www.google.com`,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "media-src 'self' blob: https:",
+      "frame-src 'self' https:",
+      "worker-src 'self' blob:",
+      [
+        "connect-src 'self'",
+        'https://*.googleapis.com',
+        'https://*.firebaseio.com',
+        'wss://*.firebaseio.com',
+        'https://firestore.googleapis.com',
+        'https://identitytoolkit.googleapis.com',
+        'https://securetoken.googleapis.com',
+        'https://www.google.com',
+        'https://www.gstatic.com',
+        'https://www.sankavollerei.web.id',
+        'https://api.jikan.moe',
+        'https://api.myanimelist.net',
+        'https://cors.siputzx.my.id',
+        'https://wsrv.nl',
+      ].join(' '),
+    ].join('; ')
+
     return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'Content-Security-Policy', value: csp },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+        ],
+      },
       {
         source: '/sw.js',
         headers: [

@@ -1,19 +1,27 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { fetchRemote, RemoteFetchError } from '@/lib/server-proxy'
 
 const BASE = 'https://www.webtoons.com'
+const WEBTOON_HOSTS = ['webtoons.com']
 
 async function fetchHtml(path: string) {
   const url = path.startsWith('http') ? path : `${BASE}${path}`
-  const { data } = await axios.get(url, {
+  const { data } = await fetchRemote(url, {
+    allowHosts: WEBTOON_HOSTS,
+    protocols: ['https:'],
+    timeoutMs: 10_000,
+    maxBytes: 5 * 1024 * 1024,
+    // Redirect tetap diizinkan, tapi setiap hop divalidasi ulang terhadap
+    // allowHosts + https oleh fetchRemote.
+    maxRedirects: 2,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       Referer: 'https://www.webtoons.com/',
       Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     },
   })
-  return data
+  return data.toString('utf8')
 }
 
 function uniqueByUrl(items: Array<Record<string, unknown>>) {
@@ -105,7 +113,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(400).json({ error: 'Invalid action' })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return res.status(500).json({ error: message })
+    console.error('Novel API error:', error instanceof Error ? error.message : error)
+    const status = error instanceof RemoteFetchError ? error.status : 502
+    return res.status(status).json({ error: 'Gagal mengambil data dari sumber' })
   }
 }

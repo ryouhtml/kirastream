@@ -136,7 +136,6 @@ export default function FriendsPage() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-[var(--color-text)] truncate">{f.displayName}</p>
-                    <p className="text-xs text-[var(--color-text-muted)] truncate">{f.email || ''}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Link href={`/messages/${f.uid}`} className="btn-secondary text-xs px-3 py-1.5 inline-flex items-center gap-1.5">
@@ -234,7 +233,6 @@ export default function FriendsPage() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-[var(--color-text)] truncate">{u.displayName}</p>
-                      <p className="text-xs text-[var(--color-text-muted)] truncate">{u.email || ''}</p>
                     </div>
                     <button
                       onClick={() => runAction(u.uid, () => sendFriendRequest(u.uid))}

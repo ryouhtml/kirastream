@@ -48,7 +48,7 @@ export default function CompletedPage() {
                 title={animes[0].title}
                 href={`/anime/detail/${animes[0].slug}`}
                 image={animes[0].image}
-                imageProxy={(url) => `/api/mal-image?url=${encodeURIComponent(url)}`}
+                imageProxy={(url) => `/api/proxy?url=${encodeURIComponent(url)}`}
                 score={animes[0].score}
                 type={animes[0].type}
                 episode={animes[0].episode}
