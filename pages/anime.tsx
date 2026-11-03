@@ -18,7 +18,7 @@ function toSpotlight(anime: Anime): SpotlightItem {
   return {
     kind: 'anime',
     title: anime.title,
-    href: `/anime/${anime.slug}`,
+    href: `/anime/detail/${anime.slug}`,
     image: anime.image,
     score: anime.score,
     type: anime.type,

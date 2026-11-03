@@ -74,7 +74,7 @@ export default function SchedulePage() {
                   </h2>
                   <div className="anime-grid">
                     {dayAnimes.map((anime) => (
-                      <Link key={anime.slug} href={`/anime/${anime.slug}`} className="anime-card group">
+                      <Link key={anime.slug} href={`/anime/detail/${anime.slug}`} className="anime-card group">
                         <div className="relative aspect-[3/4] bg-[var(--color-surface-alt)]">
                           <Image src={imageProxy(anime.image)} alt={anime.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
                           {anime.episode && <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm text-white text-xs text-center py-1">{t('schedule.episode').replace('{n}', anime.episode)}</div>}

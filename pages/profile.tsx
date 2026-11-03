@@ -21,7 +21,7 @@ export default function ProfilePage() {
       case 'manga': return `/manga/${item.slug}`
       case 'webtoon': return `/webtoon/${item.slug}`
       case 'novel': return `/novel/${item.slug}`
-      default: return `/anime/${item.slug}`
+      default: return `/anime/detail/${item.slug}`
     }
   }
 
@@ -493,7 +493,7 @@ export default function ProfilePage() {
                   favorites.map((item) => (
                     <a
                       key={item.slug}
-                      href={`/anime/${item.slug}`}
+                      href={`/anime/detail/${item.slug}`}
                       className="flex items-center gap-4 p-3 hover:bg-surface-hover rounded-lg transition-colors"
                     >
                       <img
@@ -522,7 +522,7 @@ export default function ProfilePage() {
                   watchlist.map((item) => (
                     <a
                       key={item.slug}
-                      href={`/anime/${item.slug}`}
+                      href={`/anime/detail/${item.slug}`}
                       className="flex items-center gap-4 p-3 hover:bg-surface-hover rounded-lg transition-colors"
                     >
                       <img

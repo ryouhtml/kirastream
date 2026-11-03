@@ -44,6 +44,13 @@ export default function Footer() {
         { label: t('footer.completed'), href: '/completed' },
         { label: t('footer.schedule'), href: '/schedule' },
         { label: t('footer.genres'), href: '/genres' },
+        { label: t('ak.upcoming'), href: '/upcoming' },
+        { label: t('ak.batch'), href: '/batch' },
+        { label: t('ak.liveaction'), href: '/live-action' },
+        { label: t('ak.donghua'), href: '/donghua' },
+        { label: t('ak.tokusatsu'), href: '/tokusatsu' },
+        { label: t('ak.explore'), href: '/explore' },
+        { label: t('ak.filter'), href: '/filter' },
       ],
     },
     {

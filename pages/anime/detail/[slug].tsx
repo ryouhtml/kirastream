@@ -4,7 +4,7 @@ import Head from 'next/head'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Download, Heart, ListPlus, ChevronDown, Share2 } from 'lucide-react'
-import { fetchDetail, fetchEpisode, type AnimeDetail, type StreamData } from '@/lib/api'
+import { fetchDetail, fetchBatch, type AnimeDetail, type DownloadLink } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
@@ -16,6 +16,7 @@ import {
   type WatchlistStatus 
 } from '@/lib/firebase'
 import ShareModal from '@/components/ShareModal'
+import { watchHref } from '@/lib/config'
 
 export default function AnimeDetailPage() {
   const router = useRouter()
@@ -25,11 +26,9 @@ export default function AnimeDetailPage() {
   const t = (key: string) => translate(language, key)
 
   const [anime, setAnime] = useState<AnimeDetail | null>(null)
-  const [streamData, setStreamData] = useState<StreamData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [playingEpisode, setPlayingEpisode] = useState<string | null>(null)
   const [isFavorited, setIsFavorited] = useState(false)
-  const [selectedServer, setSelectedServer] = useState(0)
+  const [batch, setBatch] = useState<DownloadLink[]>([])
   const [shareOpen, setShareOpen] = useState(false)
   const [watchlistOpen, setWatchlistOpen] = useState(false)
   const watchlistRef = useRef<HTMLDivElement>(null)
@@ -82,22 +81,11 @@ export default function AnimeDetailPage() {
     loadDetail()
   }, [slug, user])
 
-  // Play episode
-  const handlePlayEpisode = async (episodeSlug: string) => {
-    setPlayingEpisode(episodeSlug)
-    try {
-      const data = await fetchEpisode(episodeSlug)
-      setStreamData(data)
-      setSelectedServer(0)
-
-      // Scroll to player
-      setTimeout(() => {
-        document.getElementById('video-player')?.scrollIntoView({ behavior: 'smooth' })
-      }, 100)
-    } catch (error) {
-      console.error('Failed to load episode:', error)
-    }
-  }
+  // Download batch (dari detail anime)
+  useEffect(() => {
+    setBatch([])
+    if (slug && typeof slug === 'string') fetchBatch(slug).then(setBatch)
+  }, [slug])
 
   // Toggle favorite
   const handleToggleFavorite = async () => {
@@ -165,81 +153,6 @@ export default function AnimeDetailPage() {
       </Head>
 
       <div className="space-y-8">
-        {/* Video Player */}
-        {streamData && (
-          <motion.div
-            id="video-player"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="card p-4"
-          >
-            <h3 className="font-bold text-[var(--color-text)] mb-4 text-lg">
-              {streamData.title}
-            </h3>
-
-            {/* Video Container */}
-            <div className="video-container mb-4">
-              <iframe
-                src={streamData.streams[selectedServer]?.url || ''}
-                className="absolute inset-0 w-full h-full"
-                allowFullScreen
-                frameBorder="0"
-              />
-            </div>
-
-            {/* Server Selection */}
-            {streamData.streams.length > 1 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                <span className="text-sm text-[var(--color-text-muted)] self-center">{t('anime.server')}</span>
-                {streamData.streams.map((stream, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedServer(idx)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      selectedServer === idx
-                        ? 'bg-ocean text-white'
-                        : 'bg-surface-dark text-[var(--color-text-muted)] hover:bg-surface-hover'
-                    }`}
-                  >
-                    {stream.server}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Download Links */}
-            {streamData.downloads && streamData.downloads.length > 0 && (
-              <details className="mt-4">
-                <summary className="cursor-pointer text-[var(--color-text)] font-medium hover:text-ocean transition-colors flex items-center gap-2">
-                  <Download size={16} /> {t('anime.downloads')}
-                </summary>
-                <div className="mt-3 space-y-2">
-                  {streamData.downloads.map((dl, idx) => (
-                    <div key={idx} className="bg-surface-dark rounded-lg p-3">
-                      <p className="text-sm font-medium text-[var(--color-text)] mb-2">
-                        {dl.resolution} - {dl.format}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {dl.links.map((link, lidx) => (
-                          <a
-                            key={lidx}
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1 bg-ocean/20 hover:bg-ocean/30 rounded text-xs text-[var(--color-text)] transition-colors"
-                          >
-                            {link.host}
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-          </motion.div>
-        )}
-
         {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -378,7 +291,7 @@ export default function AnimeDetailPage() {
               slug: slug as string,
               title: anime.title,
               image: anime.image,
-              href: `/anime/${slug}`,
+              href: `/anime/detail/${slug}`,
             }}
           />
         )}
@@ -418,17 +331,37 @@ export default function AnimeDetailPage() {
             <h2 className="section-title">{t('anime.episodes')}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {[...anime.episodes].reverse().map((episode) => (
-                <button
+                <a
                   key={episode.slug}
-                  onClick={() => handlePlayEpisode(episode.slug)}
-                  className={`p-3 rounded-lg font-medium transition ${
-                    playingEpisode === episode.slug
-                      ? 'bg-ocean text-white'
-                      : 'bg-surface-dark text-[var(--color-text-muted)] hover:bg-surface-hover'
-                  }`}
+                  href={watchHref(episode.slug)}
+                  className="p-3 rounded-lg font-medium text-center transition bg-surface-dark text-[var(--color-text-muted)] hover:bg-surface-hover"
                 >
                   {episode.title}
-                </button>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Download Batch */}
+        {batch.length > 0 && (
+          <div className="card p-6">
+            <h2 className="section-title flex items-center gap-2"><Download size={18} /> {t('ak.batchDownload')}</h2>
+            <div className="space-y-2">
+              {batch.map((dl, idx) => (
+                <div key={idx} className="bg-surface-dark rounded-lg p-3">
+                  {(dl.resolution || dl.format) && (
+                    <p className="text-sm font-medium text-[var(--color-text)] mb-2">{[dl.format, dl.resolution].filter(Boolean).join(' · ')}</p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {dl.links.map((link, lidx) => (
+                      <a key={lidx} href={link.url} target="_blank" rel="noopener noreferrer"
+                        className="px-3 py-1 bg-ocean/20 hover:bg-ocean/30 rounded text-xs text-[var(--color-text)] transition-colors">
+                        {link.host || 'Download'}
+                      </a>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
