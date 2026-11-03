@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Mail } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { resetNekoAgeGate } from '@/components/NekoAgeGate'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
 import { motionTokens, adaptiveDuration } from '@/lib/motionTokens'
@@ -49,6 +50,7 @@ export default function Footer() {
         { label: t('ak.liveaction'), href: '/live-action' },
         { label: t('ak.donghua'), href: '/donghua' },
         { label: t('ak.tokusatsu'), href: '/tokusatsu' },
+        { label: `${t('ak.neko')} (18+)`, href: '/neko' },
         { label: t('ak.explore'), href: '/explore' },
         { label: t('ak.filter'), href: '/filter' },
       ],
@@ -100,6 +102,7 @@ export default function Footer() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
+                      onClick={link.href === '/neko' ? resetNekoAgeGate : undefined}
                       className="text-sm text-[var(--color-text-muted)] hover:text-primary dark:hover:text-accent transition-colors"
                     >
                       {link.label}

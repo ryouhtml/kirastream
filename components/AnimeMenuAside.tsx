@@ -1,11 +1,20 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { Home, Flame, PlayCircle, CheckCircle, Calendar, Tags, Clapperboard, BookOpen, ScrollText, BookMarked, CalendarClock, Package, Film, Sparkles, Shield, Compass, SlidersHorizontal } from 'lucide-react'
+import { Home, Flame, PlayCircle, CheckCircle, Calendar, Tags, Clapperboard, BookOpen, ScrollText, BookMarked, CalendarClock, Package, Film, Sparkles, Shield, Compass, SlidersHorizontal, Cat, type LucideIcon } from 'lucide-react'
 import AZList from './AZList'
+import { resetNekoAgeGate } from './NekoAgeGate'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
 
-const MENU_ITEMS = [
+interface MenuItem {
+  labelKey: string
+  href: string
+  icon: LucideIcon
+  /** Konten 18+ — tampilkan badge dan minta konfirmasi usia. */
+  adult?: boolean
+}
+
+const MENU_ITEMS: MenuItem[] = [
   { labelKey: 'nav.home', href: '/', icon: Home },
   { labelKey: 'section.popular', href: '/popular', icon: Flame },
   { labelKey: 'section.ongoing', href: '/ongoing', icon: PlayCircle },
@@ -18,6 +27,7 @@ const MENU_ITEMS = [
   { labelKey: 'ak.liveaction', href: '/live-action', icon: Film },
   { labelKey: 'ak.donghua', href: '/donghua', icon: Sparkles },
   { labelKey: 'ak.tokusatsu', href: '/tokusatsu', icon: Shield },
+  { labelKey: 'ak.neko', href: '/neko', icon: Cat, adult: true },
   { labelKey: 'ak.explore', href: '/explore', icon: Compass },
   { labelKey: 'ak.filter', href: '/filter', icon: SlidersHorizontal },
 ]
@@ -41,12 +51,22 @@ export default function AnimeMenuAside() {
           <Clapperboard size={16} className="text-ocean" /> {t('menu.anime')}
         </h3>
         <div className="space-y-1">
-          {MENU_ITEMS.map(({ labelKey, href, icon: Icon }) => {
-            const active = href === '/' ? router.pathname === '/' : router.pathname === href
+          {MENU_ITEMS.map(({ labelKey, href, icon: Icon, adult }) => {
+            const active = href === '/'
+              ? router.pathname === '/'
+              : router.pathname === href || router.pathname.startsWith(`${href}/`)
             return (
               <Link
                 key={href}
                 href={href}
+                onClick={() => {
+                  if (!adult) return
+                  // Masuk dari menu harus selalu konfirmasi 18+ lagi.
+                  resetNekoAgeGate()
+                  if (router.pathname === '/neko' || router.pathname.startsWith('/neko/')) {
+                    router.reload()
+                  }
+                }}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   active
                     ? 'bg-primary/10 text-primary dark:bg-accent/15 dark:text-accent'
@@ -54,7 +74,12 @@ export default function AnimeMenuAside() {
                 }`}
               >
                 <Icon size={16} aria-hidden="true" />
-                {t(labelKey)}
+                <span className="flex-1">{t(labelKey)}</span>
+                {adult && (
+                  <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold leading-none text-red-400">
+                    18+
+                  </span>
+                )}
               </Link>
             )
           })}
