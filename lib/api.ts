@@ -306,16 +306,18 @@ export async function fetchDetail(slug: string, onSynopsis?: (s: string) => void
       image: d.poster || d.image || d.thumbnail || '',
       description: synopsis,
       info: {
-        japanese: d.japanese || '',
+        // Animekompi memakai alter_title (judul alternatif), studio/year/rating,
+        // dan tidak mengirim total episode sebagai angka — pakai jumlah episode.
+        japanese: toText(d.japanese || d.alter_title || d.alt_titles || d.altTitles),
         type: d.type || 'TV',
         status: d.status || '',
-        total_episode: toText(d.episodes) || episodes.length || '?',
-        score: toText(d.score) || 'N/A',
+        total_episode: toText(d.total_episode || d.totalEpisodes || d.episode_count) || (episodes.length ? String(episodes.length) : '?'),
+        score: toText(d.score || d.rating) || 'N/A',
         duration: d.duration || '?',
         season: d.season || '',
-        released: d.aired || d.releaseDate || '',
+        released: toText(d.aired || d.releaseDate || d.year),
         producer: toText(d.producers),
-        studio: toText(d.studios),
+        studio: toText(d.studio || d.studios),
         genre: genres.join(', '),
       },
       genres,
@@ -464,8 +466,8 @@ export async function fetchEpisode(slug: string): Promise<StreamData | null> {
       streams,
       downloads,
       animeSlug: (typeof animeRef === 'object' ? animeRef?.slug : '') || ep.animeSlug || ep.anime_slug || undefined,
-      prevSlug: slugOf(nav.prev || nav.previous || nav.prevEpisode) || undefined,
-      nextSlug: slugOf(nav.next || nav.nextEpisode) || undefined,
+      prevSlug: slugOf(nav.prev || nav.previous || nav.prevEpisode || root.prev_episode || ep.prev_episode || root.prev) || undefined,
+      nextSlug: slugOf(nav.next || nav.nextEpisode || root.next_episode || ep.next_episode || root.next) || undefined,
     }
   } catch {
     return null
