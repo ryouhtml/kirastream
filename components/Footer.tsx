@@ -87,7 +87,7 @@ export default function Footer() {
           {/* Nav columns */}
           {NAV_COLUMNS.map((col) => (
             <motion.div key={col.title} variants={staggerItem}>
-              <h3 className="font-bold text-sm uppercase tracking-wider mb-4">{col.title}</h3>
+              <h3 className="font-semibold text-sm mb-4" style={{ color: 'var(--color-text)' }}>{col.title}</h3>
               <ul className="space-y-2.5">
                 {col.links.map((link) => (
                   <li key={link.href}>
@@ -105,7 +105,7 @@ export default function Footer() {
 
           {/* Contact */}
           <motion.div variants={staggerItem}>
-            <h3 className="font-bold text-sm uppercase tracking-wider mb-4">{t('footer.contact')}</h3>
+            <h3 className="font-semibold text-sm mb-4" style={{ color: 'var(--color-text)' }}>{t('footer.contact')}</h3>
             <ul className="space-y-3 text-sm text-[var(--color-text-muted)]">
               <li>
                 <a

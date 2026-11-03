@@ -129,8 +129,6 @@ export default function Home() {
             initial={reduce ? false : 'hidden'}
             animate="visible"
           >
-            <motion.span variants={heroItem} className="badge mb-5">{t('hero.badge')}</motion.span>
-
             <motion.h1
               variants={heroItem}
               className="text-5xl font-extrabold tracking-tighter md:text-7xl text-primary dark:text-[var(--color-text)]"
