@@ -5,6 +5,9 @@ export const CONFIG = {
   // Anime API (Sankavollerei — Animekompi)
   ANIME_API: 'https://www.sankavollerei.web.id/anime/animekompi',
 
+  // Nekopoi API (Sankavollerei — konten 18+, khusus dewasa)
+  NEKO_API: 'https://www.sankavollerei.web.id/anime/nekopoi',
+
   // MAL API (MyAnimeList)
   MAL_API: 'https://api.myanimelist.net/v2',
   MAL_CLIENT_ID: process.env.NEXT_PUBLIC_MAL_CLIENT_ID || '',
@@ -107,6 +110,18 @@ export const ENDPOINTS = {
   NOVEL_SEARCH:     (q: string) => `/novel/search?q=${encodeURIComponent(q)}`,
   NOVEL_GENRE:      (genreId: string) => `/novel/genre/${encodeURIComponent(genreId)}`,
   NOVEL_CHAPTERS:   (novelId: string) => `/novel/chapters/${encodeURIComponent(novelId)}`,
+
+  // ── Nekopoi (Sankavollerei) — KONTEN 18+ ──────────────────
+  NEKO_HOME:          '/home',
+  NEKO_SEARCH:        (q: string, page = 1) => `/search?q=${enc(q)}&page=${page}`,
+  NEKO_HENTAI_LIST:   (page = 1) => `/hentai-list?page=${page}`,
+  NEKO_GENRES:        '/genres',
+  NEKO_GENRE:         (slug: string, page = 1) => `/genre/${enc(slug)}?page=${page}`,
+  NEKO_CATEGORY:      (slug: string, page = 1) => `/category/${enc(slug)}?page=${page}`,
+  NEKO_LATEST_HENTAI: (page = 1) => `/latest-hentai?page=${page}`,
+  NEKO_LATEST_JAV:    (page = 1) => `/latest-jav?page=${page}`,
+  NEKO_DETAIL:        (slug: string) => `/detail/${enc(slug)}`,
+  NEKO_EPISODE:       (slug: string) => `/episode/${enc(slug)}`,
 } as const
 
 // Halaman nonton dipisah dari halaman detail. Secara default ada di domain yang sama
