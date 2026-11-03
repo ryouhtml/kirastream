@@ -137,27 +137,6 @@ body {
   box-sizing: border-box;
 }
 
-/* ─── CURSOR: POINTER (R-39) ────────────────────────────────── */
-/* Semua elemen interaktif wajib menunjukkan cursor pointer */
-a[href],
-button:not([disabled]),
-summary,
-[role="button"],
-[role="tab"],
-[role="switch"],
-label[for],
-input[type="checkbox"],
-input[type="radio"],
-select {
-  cursor: pointer;
-}
-button[disabled],
-input[disabled],
-select[disabled],
-[aria-disabled="true"] {
-  cursor: not-allowed;
-}
-
 html {
   font-family: var(--font-jakarta, 'Plus Jakarta Sans'), 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;

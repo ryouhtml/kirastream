@@ -442,7 +442,7 @@ export default function TopNavbar() {
 
                 {/* Sosial */}
                 <motion.div variants={drawerItemVariants} className="pt-3 mt-3 border-t border-pearl/10 space-y-1">
-                  <p className="px-4 py-1 text-xs font-semibold text-[var(--color-text-muted)]">{t('nav.social')}</p>
+                  <p className="px-4 py-1 text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">{t('nav.social')}</p>
                   {SOCIAL_LINKS.map((link) => (
                     <Link
                       key={link.href}
