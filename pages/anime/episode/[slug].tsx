@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
@@ -11,7 +11,14 @@ import { translate } from '@/lib/i18n'
 import { saveHistory } from '@/lib/firebase'
 import EpisodeExtras from '@/components/EpisodeExtras'
 import EmbedPlayer from '@/components/EmbedPlayer'
-import { pickStreamIndex, rememberStreamHost } from '@/lib/player'
+import {
+  bestStreamIndex,
+  checkStreamHealth,
+  isStreamBlocked,
+  mediaProxyUrl,
+  pickStreamIndex,
+  rememberStreamHost,
+} from '@/lib/player'
 
 // Halaman nonton khusus: /anime/episode/:episodeSlug (terpisah dari halaman detail anime)
 export default function WatchPage() {
@@ -26,25 +33,52 @@ export default function WatchPage() {
   const [loading, setLoading] = useState(true)
   const [server, setServer] = useState(0)
   const [failed, setFailed] = useState<number[]>([])
+  // URL yang sudah dicoba lewat proxy media. Disimpan per-URL supaya pindah
+  // server otomatis memakai URL asli lagi.
+  const [proxyUrl, setProxyUrl] = useState('')
+
+  // Pengguna sudah memilih server sendiri? Kalau iya, hasil health check
+  // tidak boleh menimpa pilihannya.
+  const pickedRef = useRef(false)
 
   const animeSlug = data?.animeSlug || (slug ? animeSlugOf({ slug }) : '')
 
   useEffect(() => {
     if (!slug) return
     let cancelled = false
+    const controller = new AbortController()
     setLoading(true)
     setServer(0)
     setFailed([])
+    setProxyUrl('')
+    pickedRef.current = false
     fetchEpisode(slug).then((d) => {
       if (cancelled) return
       setData(d)
+      const urls = d?.streams.map((s) => s.url) || []
       // Pakai host pilihan pengguna / server yang bukan mirror DoodStream
       // supaya tidak jatuh ke server yang sering diblokir jaringan/ISP.
-      setServer(pickStreamIndex(d?.streams.map((s) => s.url) || []))
+      setServer(pickStreamIndex(urls))
       setLoading(false)
       window.scrollTo({ top: 0 })
+
+      // Cek cepat dari server: host yang menolak di-embed ditandai gagal,
+      // lalu server terbaik dipilih selama pengguna belum memilih sendiri.
+      checkStreamHealth(urls, controller.signal).then((health) => {
+        if (cancelled || pickedRef.current || health.size === 0) return
+        const blocked = urls.flatMap((url, index) =>
+          isStreamBlocked(health.get(url)) ? [index] : []
+        )
+        if (blocked.length) {
+          setFailed((prev) => Array.from(new Set([...prev, ...blocked])))
+        }
+        setServer(bestStreamIndex(urls, health))
+      })
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [slug])
 
   // Daftar episode & info anime (tanpa sinkron MAL)
@@ -103,6 +137,11 @@ export default function WatchPage() {
     /\.(mp4|m3u8|webm|mkv)(\?|$)/i.test(current.url) ||
     /pixeldrain\.com\/api\/file\//i.test(current.url)
 
+  // Sebagian host video langsung menolak Referer/CORS browser. Kalau URL asli
+  // gagal, coba sekali lewat /api/media (passthrough + Range) sebelum
+  // menyerah dan pindah server.
+  const usingProxy = isVideo && proxyUrl === current.url
+
   // Server yang gagal dimuat (video error atau iframe tidak kunjung load)
   // ditandai lalu pindah ke server berikutnya yang belum dicoba.
   const markFailedAndAdvance = () => {
@@ -110,6 +149,14 @@ export default function WatchPage() {
     setFailed(bad)
     const nextIdx = data.streams.findIndex((_, i) => !bad.includes(i))
     if (nextIdx >= 0) setServer(nextIdx)
+  }
+
+  const handleVideoError = () => {
+    if (!usingProxy) {
+      setProxyUrl(current.url)
+      return
+    }
+    markFailedAndAdvance()
   }
 
   return (
@@ -124,7 +171,14 @@ export default function WatchPage() {
 
           {isVideo ? (
             <div className="video-container mb-4">
-              <video key={current.url} src={current.url} controls playsInline onError={markFailedAndAdvance} className="absolute inset-0 w-full h-full bg-black" />
+              <video
+                key={usingProxy ? `proxy:${current.url}` : current.url}
+                src={usingProxy ? mediaProxyUrl(current.url) : current.url}
+                controls
+                playsInline
+                onError={handleVideoError}
+                className="absolute inset-0 w-full h-full bg-black"
+              />
             </div>
           ) : (
             <EmbedPlayer url={current.url} title={data.title} onUnreachable={markFailedAndAdvance} />
@@ -141,7 +195,12 @@ export default function WatchPage() {
               {data.streams.map((s, i) => (
                 <button
                   key={s.url}
-                  onClick={() => { setServer(i); rememberStreamHost(s.url) }}
+                  onClick={() => {
+                    pickedRef.current = true
+                    setProxyUrl('')
+                    setServer(i)
+                    rememberStreamHost(s.url)
+                  }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${server === i ? 'bg-ocean text-white' : 'bg-surface-dark text-[var(--color-text-muted)] hover:bg-surface-hover'}`}
                 >
                   {s.server}{failed.includes(i) ? ' ⚠' : ''}

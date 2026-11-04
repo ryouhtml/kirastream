@@ -186,6 +186,77 @@ export async function fetchRemote(rawUrl: string, options: RemoteFetchOptions = 
   throw new RemoteFetchError('Terlalu banyak redirect', 502)
 }
 
+export const DEFAULT_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+
+export interface RemoteStreamOptions {
+  /** Protokol yang diizinkan. Default: http + https. */
+  protocols?: string[]
+  /** Batas waktu sampai header respons diterima (ms). Default 12 detik. */
+  timeoutMs?: number
+  /** Jumlah redirect maksimal. Default 3. */
+  maxRedirects?: number
+  headers?: Record<string, string>
+}
+
+export interface RemoteStreamResult {
+  response: Response
+  finalUrl: string
+}
+
+/**
+ * Buka respons upstream tanpa menampung seluruh body (untuk proxy media).
+ * Redirect ditangani manual supaya setiap hop tetap lewat assertRemoteUrl.
+ * Timeout hanya berlaku sampai header diterima; body dialirkan apa adanya.
+ */
+export async function openRemoteStream(
+  rawUrl: string,
+  options: RemoteStreamOptions = {}
+): Promise<RemoteStreamResult> {
+  const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const protocolOptions = { protocols: options.protocols || ['http:', 'https:'] }
+
+  let current = await assertRemoteUrl(rawUrl, protocolOptions)
+
+  for (let attempt = 0; attempt <= maxRedirects; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    let response: Response
+
+    try {
+      response = await fetch(current.toString(), {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          'user-agent': DEFAULT_USER_AGENT,
+          ...options.headers,
+        },
+      })
+    } catch {
+      throw new RemoteFetchError('Gagal menghubungi upstream', 502)
+    } finally {
+      clearTimeout(timer)
+    }
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location')
+      try {
+        await response.body?.cancel()
+      } catch {
+        /* abaikan */
+      }
+      if (!location) throw new RemoteFetchError('Redirect tanpa tujuan', 502)
+      current = await assertRemoteUrl(new URL(location, current).toString(), protocolOptions)
+      continue
+    }
+
+    return { response, finalUrl: current.toString() }
+  }
+
+  throw new RemoteFetchError('Terlalu banyak redirect', 502)
+}
+
 /**
  * Deteksi tipe gambar dari magic bytes. Hanya tipe raster yang diizinkan —
  * SVG sengaja ditolak karena bisa memuat <script>.

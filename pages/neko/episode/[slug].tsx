@@ -1,11 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, Download, MonitorPlay } from 'lucide-react'
 import NekoPageShell from '@/components/NekoPageShell'
 import EmbedPlayer from '@/components/EmbedPlayer'
-import { pickStreamIndex, rememberStreamHost } from '@/lib/player'
+import {
+  bestStreamIndex,
+  checkStreamHealth,
+  isStreamBlocked,
+  pickStreamIndex,
+  rememberStreamHost,
+} from '@/lib/player'
 import {
   fetchNekoDetail,
   fetchNekoEpisode,
@@ -31,22 +37,46 @@ function NekoEpisodeContent() {
   const [failed, setFailed] = useState<number[]>([])
   const [series, setSeries] = useState<{ href: string; label: string } | null>(null)
 
+  // Pengguna sudah memilih server sendiri? Kalau iya, hasil health check
+  // tidak boleh menimpa pilihannya.
+  const pickedRef = useRef(false)
+
   useEffect(() => {
     if (!slug) return
     let cancelled = false
+    const controller = new AbortController()
     setLoading(true)
     setServer(0)
     setFailed([])
+    setSeries(null)
+    pickedRef.current = false
     fetchNekoEpisode(slug).then((episode) => {
       if (cancelled) return
       setData(episode)
+      const urls = episode?.streams.map((s) => s.url) || []
       // Pakai host pilihan pengguna / server yang bukan mirror DoodStream
       // supaya tidak jatuh ke server yang sering diblokir jaringan/ISP.
-      setServer(pickStreamIndex(episode?.streams.map((s) => s.url) || []))
+      setServer(pickStreamIndex(urls))
       setLoading(false)
       window.scrollTo({ top: 0 })
+
+      // Cek cepat dari server: host yang menolak di-embed ditandai gagal,
+      // lalu server terbaik dipilih selama pengguna belum memilih sendiri.
+      checkStreamHealth(urls, controller.signal).then((health) => {
+        if (cancelled || pickedRef.current || health.size === 0) return
+        const blocked = urls.flatMap((url, index) =>
+          isStreamBlocked(health.get(url)) ? [index] : []
+        )
+        if (blocked.length) {
+          setFailed((prev) => Array.from(new Set([...prev, ...blocked])))
+        }
+        setServer(bestStreamIndex(urls, health))
+      })
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [slug])
 
   // Server yang tidak kunjung memuat (mis. diblokir ISP) ditandai, lalu
@@ -153,7 +183,11 @@ function NekoEpisodeContent() {
               <button
                 key={s.url}
                 type="button"
-                onClick={() => { setServer(i); rememberStreamHost(s.url) }}
+                onClick={() => {
+                  pickedRef.current = true
+                  setServer(i)
+                  rememberStreamHost(s.url)
+                }}
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                   server === i ? 'bg-ocean text-white' : 'bg-surface-dark text-[var(--color-text-muted)] hover:bg-surface-hover'
                 }`}
