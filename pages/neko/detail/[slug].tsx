@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import Head from 'next/head'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, ImageOff, PlayCircle } from 'lucide-react'
-import AnimeMenuAside from '@/components/AnimeMenuAside'
-import NekoAgeGate from '@/components/NekoAgeGate'
+import NekoPageShell from '@/components/NekoPageShell'
 import { fetchNekoDetail, type NekoDetail } from '@/lib/neko'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
@@ -191,19 +189,8 @@ function NekoDetailContent() {
 
 export default function NekoDetailPage() {
   return (
-    <>
-      <Head>
-        <title>Neko (18+) - KiraStream</title>
-        <meta name="robots" content="noindex, nofollow" />
-      </Head>
-      <div className="flex items-start gap-6">
-        <div className="min-w-0 flex-1">
-          <NekoAgeGate>
-            <NekoDetailContent />
-          </NekoAgeGate>
-        </div>
-        <AnimeMenuAside />
-      </div>
-    </>
+    <NekoPageShell>
+      <NekoDetailContent />
+    </NekoPageShell>
   )
 }

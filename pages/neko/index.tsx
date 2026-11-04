@@ -1,48 +1,31 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import Head from 'next/head'
 import Link from 'next/link'
-import Image from 'next/image'
-import { Cat, ImageOff, Search } from 'lucide-react'
-import AnimeMenuAside from '@/components/AnimeMenuAside'
-import NekoAgeGate from '@/components/NekoAgeGate'
-import { fetchNekoHome, fetchNekoSearch, type NekoHomeData, type NekoPost } from '@/lib/neko'
+import { Cat, Search } from 'lucide-react'
+import NekoPageShell from '@/components/NekoPageShell'
+import NekoPostCard from '@/components/NekoPostCard'
+import { fetchNekoHome, fetchNekoSearch, nekoPostHref, type NekoHomeData, type NekoPost } from '@/lib/neko'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
 
-const imageProxy = (url: string) => `/api/proxy?url=${encodeURIComponent(url)}`
-
-function NekoCard({ item, href }: { item: NekoPost; href: string }) {
-  return (
-    <Link href={href} className="anime-card group">
-      <div className="relative aspect-[3/4] bg-[var(--color-surface-alt)]">
-        {item.thumbnail ? (
-          <Image
-            src={imageProxy(item.thumbnail)}
-            alt={item.title}
-            fill
-            sizes="(max-width: 640px) 45vw, 200px"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-[var(--color-text-muted)]">
-            <ImageOff size={20} aria-hidden="true" />
-          </div>
-        )}
-        {item.date && (
-          <div className="absolute inset-x-0 bottom-0 bg-black/60 px-1.5 py-1 text-center text-[10px] font-medium text-white backdrop-blur-sm line-clamp-1">
-            {item.date}
-          </div>
-        )}
-      </div>
-      <p className="mt-2 line-clamp-2 text-xs font-medium">{item.title}</p>
-    </Link>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string
+  action?: { href: string; label: string }
+  children: React.ReactNode
+}) {
   return (
     <section className="space-y-3">
-      <h2 className="section-title">{title}</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="section-title">{title}</h2>
+        {action && (
+          <Link href={action.href} className="shrink-0 text-sm font-medium text-ocean">
+            {action.label} →
+          </Link>
+        )}
+      </div>
       {children}
     </section>
   )
@@ -118,6 +101,15 @@ function NekoHomeContent() {
         </form>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <Link href="/neko/hentai" className="tag">{t('neko.allHentai')}</Link>
+        <Link href="/neko/genres" className="tag">{t('neko.genres')}</Link>
+        <Link href="/neko/latest-hentai" className="tag">{t('neko.latestHentai')}</Link>
+        <Link href="/neko/latest-jav" className="tag">{t('neko.latestJav')}</Link>
+        <Link href="/neko/category/3d-hentai" className="tag">{t('neko.category.3d-hentai')}</Link>
+        <Link href="/neko/category/jav-cosplay" className="tag">{t('neko.category.jav-cosplay')}</Link>
+      </div>
+
       {submitted ? (
         <Section title={`${t('neko.searchResult')}: ${submitted}`}>
           {searching ? (
@@ -131,7 +123,7 @@ function NekoHomeContent() {
           ) : (
             <div className="anime-grid">
               {results.map((item) => (
-                <NekoCard key={item.slug} item={item} href={`/neko/detail/${encodeURIComponent(item.slug)}`} />
+                <NekoPostCard key={item.slug} item={item} />
               ))}
             </div>
           )}
@@ -149,12 +141,12 @@ function NekoHomeContent() {
       ) : (
         <>
           {home.recommended.length > 0 && (
-            <Section title={t('neko.recommended')}>
+            <Section title={t('neko.recommended')} action={{ href: '/neko/hentai', label: t('neko.viewAll') }}>
               <div className="flex flex-wrap gap-2">
                 {home.recommended.map((item) => (
                   <Link
                     key={item.slug}
-                    href={`/neko/detail/${encodeURIComponent(item.slug)}`}
+                    href={nekoPostHref(item)}
                     className="rounded-full bg-surface-dark px-3 py-1.5 text-sm text-[var(--color-text)] transition-colors hover:bg-surface-hover"
                   >
                     {item.title}
@@ -165,10 +157,10 @@ function NekoHomeContent() {
           )}
 
           {home.latestHentai.length > 0 && (
-            <Section title={t('neko.latestHentai')}>
+            <Section title={t('neko.latestHentai')} action={{ href: '/neko/latest-hentai', label: t('neko.viewAll') }}>
               <div className="anime-grid">
                 {home.latestHentai.map((item) => (
-                  <NekoCard key={item.slug} item={item} href={`/neko/detail/${encodeURIComponent(item.slug)}`} />
+                  <NekoPostCard key={item.slug} item={item} />
                 ))}
               </div>
             </Section>
@@ -178,17 +170,17 @@ function NekoHomeContent() {
             <Section title={t('neko.latestEpisodes')}>
               <div className="anime-grid">
                 {home.latestEpisodes.map((item) => (
-                  <NekoCard key={item.slug} item={item} href={`/neko/episode/${encodeURIComponent(item.slug)}`} />
+                  <NekoPostCard key={item.slug} item={item} />
                 ))}
               </div>
             </Section>
           )}
 
           {home.latestJav.length > 0 && (
-            <Section title={t('neko.latestJav')}>
+            <Section title={t('neko.latestJav')} action={{ href: '/neko/latest-jav', label: t('neko.viewAll') }}>
               <div className="anime-grid">
                 {home.latestJav.map((item) => (
-                  <NekoCard key={item.slug} item={item} href={`/neko/detail/${encodeURIComponent(item.slug)}`} />
+                  <NekoPostCard key={item.slug} item={item} />
                 ))}
               </div>
             </Section>
@@ -203,19 +195,8 @@ function NekoHomeContent() {
 
 export default function NekoPage() {
   return (
-    <>
-      <Head>
-        <title>Neko (18+) - KiraStream</title>
-        <meta name="robots" content="noindex, nofollow" />
-      </Head>
-      <div className="flex items-start gap-6">
-        <div className="flex-1 min-w-0">
-          <NekoAgeGate>
-            <NekoHomeContent />
-          </NekoAgeGate>
-        </div>
-        <AnimeMenuAside />
-      </div>
-    </>
+    <NekoPageShell>
+      <NekoHomeContent />
+    </NekoPageShell>
   )
 }

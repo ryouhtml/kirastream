@@ -183,6 +183,51 @@ const EMPTY_LIST: NekoListResult = {
   pagination: { currentPage: 1, totalPages: 1, hasNext: false, hasPrev: false },
 }
 
+/**
+ * True kalau URL Nekopoi adalah halaman seri (`/hentai/<slug>/`).
+ * URL kategori (`/category/hentai/`) sengaja tidak dianggap seri.
+ */
+export function isNekoSeriesUrl(url: string): boolean {
+  if (!url) return false
+  try {
+    return new URL(url).pathname.startsWith('/hentai/')
+  } catch {
+    return false
+  }
+}
+
+/**
+ * URL Nekopoi membedakan seri (`/hentai/<slug>/`) dari post episode
+ * (`/<slug>/`). Seri dibuka di halaman detail, post lain di halaman episode.
+ */
+export function nekoPostHref(item: { slug?: string; url?: string }): string {
+  const slug = item?.slug || ''
+  if (!slug) return '/neko'
+  return isNekoSeriesUrl(item?.url || '')
+    ? `/neko/detail/${encodeURIComponent(slug)}`
+    : `/neko/episode/${encodeURIComponent(slug)}`
+}
+
+/** "big-oppai" → "Big Oppai" untuk judul sementara saat nama asli belum ada. */
+export function prettyNekoSlug(slug: string): string {
+  return (slug || '')
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+/**
+ * Endpoint episode mengisi `series` dengan kategori (mis. /category/hentai/),
+ * bukan seri induknya. Slug episode umumnya berbentuk
+ * "<seri>-episode-<n>-...", jadi slug seri induk bisa ditebak dengan
+ * memotong bagian episodenya.
+ */
+export function nekoSeriesSlugFromEpisode(slug: string): string {
+  const match = (slug || '').match(/^(.+?)-episode-\d+(?:-|$)/i)
+  return match ? match[1] : ''
+}
+
 // ─── API FUNCTIONS ───────────────────────────────────────────
 
 /** Rilis terbaru: rekomendasi, hentai, episode, dan JAV. */

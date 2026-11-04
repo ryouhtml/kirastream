@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import Head from 'next/head'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, Download, MonitorPlay } from 'lucide-react'
-import AnimeMenuAside from '@/components/AnimeMenuAside'
-import NekoAgeGate from '@/components/NekoAgeGate'
-import { fetchNekoEpisode, type NekoEpisodeDetail } from '@/lib/neko'
+import NekoPageShell from '@/components/NekoPageShell'
+import {
+  fetchNekoDetail,
+  fetchNekoEpisode,
+  isNekoSeriesUrl,
+  nekoSeriesSlugFromEpisode,
+  prettyNekoSlug,
+  type NekoEpisodeDetail,
+} from '@/lib/neko'
 import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
 
@@ -21,6 +26,7 @@ function NekoEpisodeContent() {
   const [data, setData] = useState<NekoEpisodeDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [server, setServer] = useState(0)
+  const [series, setSeries] = useState<{ href: string; label: string } | null>(null)
 
   useEffect(() => {
     if (!slug) return
@@ -36,10 +42,40 @@ function NekoEpisodeContent() {
     return () => { cancelled = true }
   }, [slug])
 
-  const backHref = data?.series?.slug
-    ? `/neko/detail/${encodeURIComponent(data.series.slug)}`
-    : '/neko'
-  const backLabel = data?.series?.name || t('neko.backHome')
+  // `data.series` dari API berisi kategori, bukan seri induk. Kalau URL-nya
+  // memang seri (/hentai/<slug>/), pakai langsung. Kalau tidak, tebak slug
+  // seri dari slug episode, lalu pastikan detailnya benar-benar ada.
+  useEffect(() => {
+    if (!data) {
+      setSeries(null)
+      return
+    }
+    if (data.series?.slug && isNekoSeriesUrl(data.series.url)) {
+      setSeries({
+        href: `/neko/detail/${encodeURIComponent(data.series.slug)}`,
+        label: data.series.name || prettyNekoSlug(data.series.slug),
+      })
+      return
+    }
+    const guess = nekoSeriesSlugFromEpisode(slug)
+    if (!guess) {
+      setSeries(null)
+      return
+    }
+    let cancelled = false
+    fetchNekoDetail(guess).then((detail) => {
+      if (cancelled) return
+      setSeries(
+        detail
+          ? { href: `/neko/detail/${encodeURIComponent(guess)}`, label: prettyNekoSlug(guess) }
+          : null,
+      )
+    })
+    return () => { cancelled = true }
+  }, [data, slug])
+
+  const backHref = series?.href || '/neko'
+  const backLabel = series?.label || t('neko.backHome')
 
   if (loading) {
     return (
@@ -163,11 +199,11 @@ function NekoEpisodeContent() {
           )}
         </div>
 
-        {data.series && (
+        {series && (
           <div className="mt-5 border-t pt-4" style={{ borderColor: 'var(--color-border)' }}>
             <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('neko.series')}</p>
-            <Link href={backHref} className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-ocean">
-              {data.series.name} <span aria-hidden="true">›</span>
+            <Link href={series.href} className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-ocean">
+              {series.label} <span aria-hidden="true">›</span>
             </Link>
           </div>
         )}
@@ -180,19 +216,8 @@ function NekoEpisodeContent() {
 
 export default function NekoEpisodePage() {
   return (
-    <>
-      <Head>
-        <title>Neko (18+) - KiraStream</title>
-        <meta name="robots" content="noindex, nofollow" />
-      </Head>
-      <div className="flex items-start gap-6">
-        <div className="min-w-0 flex-1">
-          <NekoAgeGate>
-            <NekoEpisodeContent />
-          </NekoAgeGate>
-        </div>
-        <AnimeMenuAside />
-      </div>
-    </>
+    <NekoPageShell>
+      <NekoEpisodeContent />
+    </NekoPageShell>
   )
 }
