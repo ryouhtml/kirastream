@@ -10,6 +10,8 @@ import { useSettings } from '@/contexts/SettingsContext'
 import { translate } from '@/lib/i18n'
 import { saveHistory } from '@/lib/firebase'
 import EpisodeExtras from '@/components/EpisodeExtras'
+import EmbedPlayer from '@/components/EmbedPlayer'
+import { pickStreamIndex, rememberStreamHost } from '@/lib/player'
 
 // Halaman nonton khusus: /anime/episode/:episodeSlug (terpisah dari halaman detail anime)
 export default function WatchPage() {
@@ -36,6 +38,9 @@ export default function WatchPage() {
     fetchEpisode(slug).then((d) => {
       if (cancelled) return
       setData(d)
+      // Pakai host pilihan pengguna / server yang bukan mirror DoodStream
+      // supaya tidak jatuh ke server yang sering diblokir jaringan/ISP.
+      setServer(pickStreamIndex(d?.streams.map((s) => s.url) || []))
       setLoading(false)
       window.scrollTo({ top: 0 })
     })
@@ -98,11 +103,12 @@ export default function WatchPage() {
     /\.(mp4|m3u8|webm|mkv)(\?|$)/i.test(current.url) ||
     /pixeldrain\.com\/api\/file\//i.test(current.url)
 
-  // Jika <video> gagal dimuat, tandai server ini lalu pindah ke server berikutnya
-  const handleVideoError = () => {
-    const bad = [...failed, server]
+  // Server yang gagal dimuat (video error atau iframe tidak kunjung load)
+  // ditandai lalu pindah ke server berikutnya yang belum dicoba.
+  const markFailedAndAdvance = () => {
+    const bad = failed.includes(server) ? failed : [...failed, server]
     setFailed(bad)
-    const nextIdx = data.streams.findIndex((_, i) => i !== server && !bad.includes(i))
+    const nextIdx = data.streams.findIndex((_, i) => !bad.includes(i))
     if (nextIdx >= 0) setServer(nextIdx)
   }
 
@@ -116,24 +122,13 @@ export default function WatchPage() {
           </Link>
           <h1 className="font-bold text-[var(--color-text)] mb-4 text-lg">{data.title}</h1>
 
-          <div className="video-container mb-4">
-            {isVideo ? (
-              <video key={current.url} src={current.url} controls playsInline onError={handleVideoError} className="absolute inset-0 w-full h-full bg-black" />
-            ) : (
-              <iframe
-                key={current.url}
-                src={current.url}
-                className="absolute inset-0 w-full h-full"
-                allowFullScreen
-                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-                // Batasi kemampuan halaman embed: tanpa akses ke parent/top,
-                // tanpa form/popup, dan referer tidak dikirim.
-                sandbox="allow-scripts allow-same-origin allow-presentation allow-orientation-lock"
-                referrerPolicy="no-referrer"
-                frameBorder="0"
-              />
-            )}
-          </div>
+          {isVideo ? (
+            <div className="video-container mb-4">
+              <video key={current.url} src={current.url} controls playsInline onError={markFailedAndAdvance} className="absolute inset-0 w-full h-full bg-black" />
+            </div>
+          ) : (
+            <EmbedPlayer url={current.url} title={data.title} onUnreachable={markFailedAndAdvance} />
+          )}
 
           <div className="flex items-center justify-between gap-2 mb-4">
             <Nav to={prevSlug}><ChevronLeft size={16} aria-hidden="true" /> Prev</Nav>
@@ -146,7 +141,7 @@ export default function WatchPage() {
               {data.streams.map((s, i) => (
                 <button
                   key={s.url}
-                  onClick={() => setServer(i)}
+                  onClick={() => { setServer(i); rememberStreamHost(s.url) }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${server === i ? 'bg-ocean text-white' : 'bg-surface-dark text-[var(--color-text-muted)] hover:bg-surface-hover'}`}
                 >
                   {s.server}{failed.includes(i) ? ' ⚠' : ''}

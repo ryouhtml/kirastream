@@ -4,6 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, Download, MonitorPlay } from 'lucide-react'
 import NekoPageShell from '@/components/NekoPageShell'
+import EmbedPlayer from '@/components/EmbedPlayer'
+import { pickStreamIndex, rememberStreamHost } from '@/lib/player'
 import {
   fetchNekoDetail,
   fetchNekoEpisode,
@@ -26,6 +28,7 @@ function NekoEpisodeContent() {
   const [data, setData] = useState<NekoEpisodeDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [server, setServer] = useState(0)
+  const [failed, setFailed] = useState<number[]>([])
   const [series, setSeries] = useState<{ href: string; label: string } | null>(null)
 
   useEffect(() => {
@@ -33,14 +36,28 @@ function NekoEpisodeContent() {
     let cancelled = false
     setLoading(true)
     setServer(0)
+    setFailed([])
     fetchNekoEpisode(slug).then((episode) => {
       if (cancelled) return
       setData(episode)
+      // Pakai host pilihan pengguna / server yang bukan mirror DoodStream
+      // supaya tidak jatuh ke server yang sering diblokir jaringan/ISP.
+      setServer(pickStreamIndex(episode?.streams.map((s) => s.url) || []))
       setLoading(false)
       window.scrollTo({ top: 0 })
     })
     return () => { cancelled = true }
   }, [slug])
+
+  // Server yang tidak kunjung memuat (mis. diblokir ISP) ditandai, lalu
+  // otomatis pindah ke server berikutnya yang belum dicoba.
+  const handleUnreachable = () => {
+    if (!data) return
+    const bad = failed.includes(server) ? failed : [...failed, server]
+    setFailed(bad)
+    const next = data.streams.findIndex((_, index) => !bad.includes(index))
+    if (next >= 0) setServer(next)
+  }
 
   // `data.series` dari API berisi kategori, bukan seri induk. Kalau URL-nya
   // memang seri (/hentai/<slug>/), pakai langsung. Kalau tidak, tebak slug
@@ -113,21 +130,7 @@ function NekoEpisodeContent() {
         </div>
 
         {current ? (
-          <div className="video-container mb-4">
-            <iframe
-              key={current.url}
-              src={current.url}
-              className="absolute inset-0 h-full w-full"
-              allowFullScreen
-              allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-              // Batasi kemampuan halaman embed: tanpa akses ke parent/top,
-              // tanpa form/popup, dan referer tidak dikirim.
-              sandbox="allow-scripts allow-same-origin allow-presentation allow-orientation-lock"
-              referrerPolicy="no-referrer"
-              frameBorder="0"
-              title={data.title}
-            />
-          </div>
+          <EmbedPlayer url={current.url} title={data.title} onUnreachable={handleUnreachable} />
         ) : (
           <div className="mb-4 flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl bg-[var(--color-surface-alt)] text-center">
             {data.thumbnail ? (
@@ -150,12 +153,12 @@ function NekoEpisodeContent() {
               <button
                 key={s.url}
                 type="button"
-                onClick={() => setServer(i)}
+                onClick={() => { setServer(i); rememberStreamHost(s.url) }}
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                   server === i ? 'bg-ocean text-white' : 'bg-surface-dark text-[var(--color-text-muted)] hover:bg-surface-hover'
                 }`}
               >
-                {s.server || `Server ${i + 1}`}
+                {s.server || `Server ${i + 1}`}{failed.includes(i) ? ' ⚠' : ''}
               </button>
             ))}
           </div>

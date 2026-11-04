@@ -42,6 +42,10 @@ const nextConfig = {
       "worker-src 'self' blob:",
       [
         "connect-src 'self'",
+        // Host streaming embed berubah-ubah, jadi cakup semua HTTPS. Ini
+        // dipakai EmbedPlayer untuk mengecek apakah server video bisa
+        // dijangkau jaringan pengguna sebelum iframe dimuat.
+        'https:',
         'https://*.googleapis.com',
         'https://*.firebaseio.com',
         'wss://*.firebaseio.com',
